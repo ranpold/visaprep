@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "dev": "node build.mjs && npx --yes serve public"
+    "dev": "node build.mjs && npx --yes serve public",
+    "deploy:cf": "SITE_URL=https://visaprep.pages.dev node build.mjs && npx --yes wrangler pages deploy public --project-name visaprep --branch main"
   }
 }

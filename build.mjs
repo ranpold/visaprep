@@ -4,6 +4,8 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, cpSync, 
 import { join, dirname, relative } from "node:path";
 
 const config = JSON.parse(readFileSync("site.config.json", "utf8"));
+// Allow per-host override, e.g. SITE_URL=https://visaprep.pages.dev for Cloudflare Pages.
+if (process.env.SITE_URL) config.siteUrl = process.env.SITE_URL.replace(/\/$/, "");
 const SRC = "src/pages";
 // Path prefix when hosted under a sub-path (e.g. username.github.io/visaprep).
 const BASE = new URL(config.siteUrl).pathname.replace(/\/$/, "");
