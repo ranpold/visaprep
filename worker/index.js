@@ -205,7 +205,8 @@ function timetableEntry(e, originCode) {
   const dest = place(toCode);
   return {
     airline: e.airline?.iata || "",
-    airlineName: e.airline?.name || ref.airlines[e.airline?.iata] || "",
+    // Prefer the full name from reference data ("British Airways" rather than "British").
+    airlineName: ref.airlines[e.airline?.iata] || e.airline?.name || "",
     flightNo: (e.number || "").replace(/\s+/, " "),
     from: origin.code,
     fromLabel: `${origin.city} (${origin.code})`,
