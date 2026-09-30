@@ -99,7 +99,7 @@
 
       ${s.notes ? `<div class="doc-section">Notes</div><div style="white-space:pre-wrap">${esc(s.notes)}</div>` : ""}
 
-      <div class="doc-foot">Prepared by the traveller on ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. This document sets out planned travel. The status column shows whether each item is planned, held, or booked.</div>
+      <div class="doc-foot">Prepared by the traveller on ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. This document sets out planned travel. The status column shows whether each item is planned, held, booked, or confirmed.</div>
     `;
   }
 
