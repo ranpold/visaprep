@@ -100,6 +100,11 @@
       <div><label>Arrives</label><input type="time" data-k="arr"></div>
       <div><label>Status</label><select data-k="status"><option>Planned (not booked)</option><option>Held (free hold)</option><option>Booked (refundable)</option><option>Booked</option><option>Confirmed</option></select></div>
     </div>
+    <div class="row">
+      <div><label>Aircraft <span class="muted">(optional)</span></label><input data-k="aircraft" placeholder="Boeing 787"></div>
+    </div>
+    <!-- Filled by the flight finder; used for duration and layover display. -->
+    <input type="hidden" data-k="arrDate"><input type="hidden" data-k="dur"><input type="hidden" data-k="depUtc"><input type="hidden" data-k="arrUtc">
   </div>
 </template>
 

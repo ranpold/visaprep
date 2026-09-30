@@ -59,48 +59,116 @@
     }
   }
 
+  // "Paris (CDG)" -> { city: "Paris", code: "CDG" }
+  const splitPlace = (label) => {
+    const m = /^(.*?)\s*\(([A-Z]{3})\)\s*$/.exec(label || "");
+    return m ? { city: m[1], code: m[2] } : { city: label || "", code: "" };
+  };
+  const shortDate = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "");
+  const fmtDur = (m) => (m > 0 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : "");
+  const statusClass = (st) => (/confirmed|booked/i.test(st || "") ? "st-booked" : /held|reserved/i.test(st || "") ? "st-held" : "st-plan");
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+  function flightCard(f) {
+    const a = splitPlace(f.from), b = splitPlace(f.to);
+    const shift = f.arrDate && f.date && f.arrDate > f.date ? Math.round((Date.parse(f.arrDate) - Date.parse(f.date)) / 86400000) : 0;
+    return `
+      <div class="fl">
+        <div class="fl-top">
+          <span class="fl-air">${esc(f.airline) || "Airline"}${f.flightNo ? ` · <strong>${esc(f.flightNo)}</strong>` : ""}</span>
+          <span class="pill ${statusClass(f.status)}">${esc(f.status)}</span>
+        </div>
+        <div class="fl-main">
+          <div class="fl-end">
+            <div class="fl-time">${esc(f.dep) || "--:--"}</div>
+            <div class="fl-code">${esc(a.code || a.city)}</div>
+            <div class="fl-city">${esc(a.code ? a.city : "")}${a.code ? " · " : ""}${esc(shortDate(f.date))}</div>
+          </div>
+          <div class="fl-mid">
+            <div class="fl-dur">${esc(fmtDur(+f.dur))}</div>
+            <div class="fl-line"><span>✈</span></div>
+            <div class="fl-sub">${esc(f.aircraft || "")}</div>
+          </div>
+          <div class="fl-end fl-r">
+            <div class="fl-time">${esc(f.arr) || "--:--"}${shift ? `<sup>+${shift}</sup>` : ""}</div>
+            <div class="fl-code">${esc(b.code || b.city)}</div>
+            <div class="fl-city">${esc(b.code ? b.city : "")}${b.code && (f.arrDate || f.date) ? " · " : ""}${esc(shortDate(f.arrDate || f.date))}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Layover chip between two consecutive flights that connect at the same airport.
+  function layover(prev, next) {
+    const p = splitPlace(prev.to), n = splitPlace(next.from);
+    if (!p.code || p.code !== n.code || !+prev.arrUtc || !+next.depUtc) return "";
+    const mins = Math.round((+next.depUtc - +prev.arrUtc) / 60000);
+    if (mins <= 0 || mins > 24 * 60) return "";
+    return `<div class="layover">Layover in ${esc(p.city)} (${esc(p.code)}) · ${esc(fmtDur(mins))}</div>`;
+  }
+
   function render(s) {
     const travellers = s.travellers.split("\n").map((t) => t.trim()).filter(Boolean);
-    const flights = s.flights.filter((f) => f.from || f.to || f.date).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const flights = s.flights.filter((f) => f.from || f.to || f.date).sort((a, b) => ((a.date || "") + (a.dep || "")).localeCompare((b.date || "") + (b.dep || "")));
     const stays = s.stays.filter((h) => h.name || h.city).sort((a, b) => (a.in || "").localeCompare(b.in || ""));
     const days = s.days.filter((d) => d.date || d.plan).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    const allDates = [...flights.map((f) => f.date), ...stays.flatMap((h) => [h.in, h.out]), ...days.map((d) => d.date)].filter(Boolean).sort();
-    const range = allDates.length ? `${fmtDate(allDates[0])} to ${fmtDate(allDates[allDates.length - 1])}` : "Dates to be added";
+    const allDates = [...flights.flatMap((f) => [f.date, f.arrDate]), ...stays.flatMap((h) => [h.in, h.out]), ...days.map((d) => d.date)].filter(Boolean).sort();
+    const start = allDates[0], end = allDates[allDates.length - 1];
+    const tripDays = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1 : 0;
+    const stayNights = stays.reduce((n, h) => n + (+nights(h.in, h.out) || 0), 0);
+    const origin = flights[0] ? splitPlace(flights[0].from).city : "";
+    // A flight's destination is only a connection hub if the next flight leaves from there within a day.
+    const isHub = (f, i) => {
+      const next = flights[i + 1];
+      if (!next || splitPlace(f.to).code !== splitPlace(next.from).code) return false;
+      return Date.parse(next.date) - Date.parse(f.arrDate || f.date) <= 86400000;
+    };
+    const flightDests = flights.filter((f, i) => !isHub(f, i)).map((f) => splitPlace(f.to).city);
+    const places = [...new Set([...stays.map((h) => h.city), ...flightDests].filter((c) => c && c !== origin))];
     const empty = (msg) => `<p class="empty">${msg}</p>`;
 
     preview.innerHTML = `
-      <div class="doc-kicker">Travel Itinerary</div>
-      <div class="doc-head">
+      <div class="doc-title">
         <div>
+          <div class="doc-kicker">Travel Itinerary</div>
           <h2>${esc(s.tripTitle) || "My trip"}</h2>
-          <div>${esc(range)}</div>
+          <div class="doc-trav">${travellers.length ? travellers.map(esc).join(" · ") : '<span class="empty">Add traveller names</span>'}</div>
         </div>
-        <div style="text-align:right">
-          <div><strong>Purpose:</strong> ${esc(s.purpose)}</div>
-          ${s.contact ? `<div>${esc(s.contact)}</div>` : ""}
+        <div class="doc-meta">
+          <div><span>Purpose</span>${esc(s.purpose)}</div>
+          ${s.contact ? `<div><span>Contact</span>${esc(s.contact)}</div>` : ""}
         </div>
       </div>
 
-      <div class="doc-section">Traveller${travellers.length === 1 ? "" : "s"}</div>
-      ${travellers.length ? `<div>${travellers.map(esc).join("<br>")}</div>` : empty("Add traveller names")}
+      <div class="summary">
+        <div><span>Travel dates</span><strong>${start ? `${esc(shortDate(start))} – ${esc(shortDate(end))}` : "—"}</strong>${start ? `<em>${esc(start.slice(0, 4))}</em>` : ""}</div>
+        <div><span>Duration</span><strong>${tripDays ? esc(plural(tripDays, "day")) : "—"}</strong>${stayNights ? `<em>${esc(plural(stayNights, "night"))} accommodation</em>` : ""}</div>
+        <div><span>Destinations</span><strong>${places.length ? esc(places.slice(0, 3).join(", ")) : "—"}</strong>${places.length > 3 ? `<em>+${places.length - 3} more</em>` : ""}</div>
+        <div><span>Travellers</span><strong>${travellers.length || "—"}</strong></div>
+      </div>
 
       <div class="doc-section">Flights</div>
-      ${flights.length ? `<table><thead><tr><th>Date</th><th>Route</th><th>Airline / flight</th><th>Time</th><th>Status</th></tr></thead><tbody>
-        ${flights.map((f) => `<tr><td>${esc(fmtDate(f.date))}</td><td>${esc(f.from)} → ${esc(f.to)}</td><td>${esc(f.airline)}${f.flightNo ? " " + esc(f.flightNo) : ""}</td><td>${esc(f.dep)}${f.arr ? "–" + esc(f.arr) : ""}</td><td>${esc(f.status)}</td></tr>`).join("")}
-      </tbody></table>` : empty("Add your planned flights")}
+      ${flights.length ? flights.map((f, i) => (i ? layover(flights[i - 1], f) : "") + flightCard(f)).join("") : empty("Add your flights, or use Find flights")}
 
       <div class="doc-section">Accommodation</div>
-      ${stays.length ? `<table><thead><tr><th>Stay</th><th>Dates</th><th>Nights</th><th>Status</th></tr></thead><tbody>
-        ${stays.map((h) => `<tr><td><strong>${esc(h.name)}</strong>${h.city ? ", " + esc(h.city) : ""}${h.address ? `<br><small>${esc(h.address)}</small>` : ""}</td><td>${esc(fmtDate(h.in))}${h.out ? " → " + esc(fmtDate(h.out)) : ""}</td><td>${nights(h.in, h.out)}</td><td>${esc(h.status)}</td></tr>`).join("")}
-      </tbody></table>` : empty("Add where you'll stay")}
+      ${stays.length ? `<div class="stays">${stays.map((h) => `
+        <div class="stay">
+          <div class="stay-top"><strong>${esc(h.name) || "Accommodation"}</strong><span class="pill ${statusClass(h.status)}">${esc(h.status)}</span></div>
+          <div class="stay-city">${esc(h.city)}${h.address ? ` · ${esc(h.address)}` : ""}</div>
+          <div class="stay-dates">
+            <div><span>Check-in</span>${esc(shortDate(h.in)) || "—"}</div>
+            <div><span>Check-out</span>${esc(shortDate(h.out)) || "—"}</div>
+            <div><span>Nights</span>${nights(h.in, h.out) || "—"}</div>
+          </div>
+        </div>`).join("")}</div>` : empty("Add where you'll stay")}
 
-      ${days.length ? `<div class="doc-section">Day-by-day plan</div><table><thead><tr><th>Date</th><th>City</th><th>Plans</th></tr></thead><tbody>
-        ${days.map((d) => `<tr><td>${esc(fmtDate(d.date))}</td><td>${esc(d.city)}</td><td>${esc(d.plan)}</td></tr>`).join("")}
+      ${days.length ? `<div class="doc-section">Day-by-day plan</div><table class="plan"><tbody>
+        ${days.map((d) => `<tr><td class="plan-date">${esc(shortDate(d.date))}</td><td class="plan-city">${esc(d.city)}</td><td>${esc(d.plan)}</td></tr>`).join("")}
       </tbody></table>` : ""}
 
       ${s.notes ? `<div class="doc-section">Notes</div><div style="white-space:pre-wrap">${esc(s.notes)}</div>` : ""}
 
-      <div class="doc-foot">Prepared by the traveller on ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. This document sets out planned travel. The status column shows whether each item is planned, held, booked, or confirmed.</div>
+      <div class="doc-foot">Prepared by the traveller on ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. This document sets out planned travel; each flight and stay shows whether it is planned, held, booked, or confirmed.</div>
     `;
   }
 

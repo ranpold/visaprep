@@ -159,6 +159,11 @@
       set("dep", seg.depTime);
       set("arr", seg.arrTime);
       set("status", "Planned (not booked)");
+      set("aircraft", seg.aircraft || "");
+      set("arrDate", seg.arrDate || "");
+      set("dur", seg.durationMin || "");
+      set("depUtc", seg.depUtc || "");
+      set("arrUtc", seg.arrUtc || "");
       box.appendChild(row);
     }
     // Outbound rows first, then return, then anything the traveller added by hand.
