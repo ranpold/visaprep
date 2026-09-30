@@ -29,7 +29,8 @@
           <label><input type="radio" name="f-trip" value="round" checked> Round trip</label>
           <label><input type="radio" name="f-trip" value="oneway"> One way</label>
         </div>
-        <div class="row">
+        <div class="row route-row">
+          <button type="button" class="swap" id="f-swap" aria-label="Swap From and To" title="Swap From and To"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg></button>
           <div class="ac"><label for="f-from">From</label><input id="f-from" placeholder="City or airport, e.g. Mumbai" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="f-from-list" data-place><ul class="ac-list" id="f-from-list" role="listbox" hidden></ul></div>
           <div class="ac"><label for="f-to">To</label><input id="f-to" placeholder="e.g. Paris" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="f-to-list" data-place><ul class="ac-list" id="f-to-list" role="listbox" hidden></ul></div>
         </div>

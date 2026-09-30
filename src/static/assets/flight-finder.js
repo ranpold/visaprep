@@ -90,6 +90,17 @@
     });
   });
 
+  // --- Swap From / To ---
+  $("f-swap").addEventListener("click", (e) => {
+    const a = $("f-from"), b = $("f-to");
+    [a.value, b.value] = [b.value, a.value];
+    const [ca, cb] = [a.dataset.code, b.dataset.code];
+    if (cb) a.dataset.code = cb; else delete a.dataset.code;
+    if (ca) b.dataset.code = ca; else delete b.dataset.code;
+    [a, b].forEach((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
+    e.currentTarget.classList.toggle("spun");
+  });
+
   // --- Trip type ---
   const retWrap = $("f-ret-wrap");
   const oneWay = () => document.querySelector('input[name="f-trip"]:checked').value === "oneway";

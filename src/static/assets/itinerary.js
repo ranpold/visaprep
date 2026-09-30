@@ -68,7 +68,7 @@
     const empty = (msg) => `<p class="empty">${msg}</p>`;
 
     preview.innerHTML = `
-      <div class="doc-banner">TRAVEL ITINERARY PLAN · NOT A TICKET OR BOOKING CONFIRMATION</div>
+      <div class="doc-kicker">Travel Itinerary</div>
       <div class="doc-head">
         <div>
           <h2>${esc(s.tripTitle) || "My trip"}</h2>

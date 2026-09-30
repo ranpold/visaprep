@@ -132,7 +132,7 @@ textarea { min-height: 90px; resize: vertical; }
 /* Document preview (itinerary / letter) */
 .paper { background: #fff; color: #1c1f23; border: 1px solid var(--line); border-radius: 6px; padding: 36px 40px; box-shadow: var(--shadow); font-size: 14px; line-height: 1.5; }
 .paper h2 { font-family: var(--font); font-size: 20px; margin: 0; letter-spacing: 0; }
-.paper .doc-banner { border: 2px solid #1c1f23; text-align: center; font-weight: 700; letter-spacing: .08em; font-size: 12px; padding: 6px; margin-bottom: 18px; }
+.paper .doc-kicker { font-weight: 700; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; color: #0f766e; margin-bottom: 6px; }
 .paper .doc-head { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #0f766e; padding-bottom: 12px; margin-bottom: 16px; }
 .paper .doc-section { font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .06em; color: #0f766e; margin: 18px 0 8px; }
 .paper table { width: 100%; border-collapse: collapse; }
@@ -209,3 +209,11 @@ textarea { min-height: 90px; resize: vertical; }
 input[type="date"] { cursor: pointer; min-height: 44px; }
 input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .85; padding: 4px; border-radius: 6px; }
 input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; background: var(--brand-soft); }
+
+/* From/To swap button, centred between the two fields */
+.route-row { position: relative; }
+.swap { position: absolute; left: 50%; top: 29px; transform: translateX(-50%); z-index: 5; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--brand); display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow); transition: transform .2s ease; }
+.swap:hover { border-color: var(--brand); }
+.swap.spun { transform: translateX(-50%) rotate(180deg); }
+.swap:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+@media (max-width: 400px) { .route-row { grid-template-columns: 1fr 1fr; } }
