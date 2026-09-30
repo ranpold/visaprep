@@ -47,3 +47,49 @@ document.addEventListener("click", (e) => {
     }
   }
 });
+
+// Save an element as a real PDF file. html2pdf (html2canvas + jsPDF) loads from cdnjs on first
+// use; if it can't load, fall back to the browser's print dialog ("Save as PDF").
+const HTML2PDF = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+let html2pdfLoading;
+function loadHtml2pdf() {
+  html2pdfLoading ||= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = HTML2PDF;
+    s.onload = () => (window.html2pdf ? resolve(window.html2pdf) : reject(new Error("html2pdf missing")));
+    s.onerror = () => reject(new Error("html2pdf failed to load"));
+    document.head.appendChild(s);
+  });
+  return html2pdfLoading;
+}
+
+window.downloadPdf = async (el, name, button) => {
+  const label = button?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Preparing PDF…";
+  }
+  try {
+    const html2pdf = await loadHtml2pdf();
+    const file = (name || "document").replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, "-").toLowerCase().slice(0, 60) || "document";
+    await html2pdf()
+      .set({
+        margin: [10, 10, 12, 10],
+        filename: `${file}.pdf`,
+        image: { type: "jpeg", quality: 0.96 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"], avoid: [".fl", ".stay", ".layover", "tr"] },
+      })
+      .from(el)
+      .save();
+  } catch (err) {
+    console.error(err);
+    window.print();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = label;
+    }
+  }
+};

@@ -231,7 +231,9 @@
       update();
     })
   );
-  document.getElementById("print").addEventListener("click", () => window.print());
+  document.getElementById("print").addEventListener("click", (e) =>
+    window.downloadPdf(preview, `${form.tripTitle.value || "travel"} itinerary`, e.currentTarget)
+  );
   document.getElementById("sample").addEventListener("click", () => {
     load(SAMPLE);
     update();

@@ -84,7 +84,7 @@ ${or(s.name, "Your full name")}`;
 
   form.addEventListener("input", update);
   form.addEventListener("change", update);
-  $("print").addEventListener("click", () => window.print());
+  $("print").addEventListener("click", (e) => window.downloadPdf(letter, `visa cover letter ${$("name").value}`, e.currentTarget));
   $("copy").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(letter.innerText);

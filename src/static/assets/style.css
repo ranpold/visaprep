@@ -170,7 +170,8 @@ textarea { min-height: 90px; resize: vertical; }
   main:has(.tool) > *:not(.tool), .tool > :not(.print-area) { display: none !important; }
   .tool { display: block; padding: 0; }
   .print-area .sticky { position: static; }
-  .print-area > :not(.paper) { display: none !important; }
+  /* The document sits inside .sticky; hide its siblings (label, ad), not the wrapper itself. */
+  .print-area .sticky > :not(.paper) { display: none !important; }
   .paper { border: 0; box-shadow: none; padding: 0; }
   @page { margin: 16mm; }
 }
