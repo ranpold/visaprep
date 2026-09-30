@@ -154,7 +154,8 @@ async function originAirports(code) {
 async function directFlights(env, from, toSet, date) {
   const origins = await originAirports(from);
   const lists = await Promise.all(origins.map((a) => departures(env, a, date)));
-  return lists.flat().filter((f) => toSet.has(f.to));
+  // Names are resolved here, not only when cached, so KV entries pick up reference-data fixes.
+  return lists.flat().filter((f) => toSet.has(f.to)).map((f) => ({ ...f, airlineName: ref.airlines[f.airline] || f.airlineName }));
 }
 
 // All scheduled departures from one airport on one local day, cached in KV.
