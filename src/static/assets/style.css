@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light dark;
   --bg: #fbfaf7;
   --surface: #ffffff;
   --surface-2: #f3f1ec;
@@ -203,3 +204,8 @@ textarea { min-height: 90px; resize: vertical; }
 .ac-list .ac-sub { color: var(--muted); font-size: .8rem; display: block; }
 .ac-list .ac-empty { color: var(--muted); cursor: default; }
 .ac-list li.ac-child { padding-left: 26px; }
+
+/* Date inputs: whole field is clickable (opens the calendar), icon clearly visible */
+input[type="date"] { cursor: pointer; min-height: 44px; }
+input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .85; padding: 4px; border-radius: 6px; }
+input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; background: var(--brand-soft); }

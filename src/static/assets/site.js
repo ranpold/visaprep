@@ -35,3 +35,15 @@ window.store = {
 
 window.escapeHtml = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// Date fields: open the calendar when the field itself is clicked, not only its small icon.
+document.addEventListener("click", (e) => {
+  const el = e.target;
+  if (el instanceof HTMLInputElement && el.type === "date" && typeof el.showPicker === "function") {
+    try {
+      el.showPicker();
+    } catch {
+      /* some browsers only allow this from certain gestures; the native icon still works */
+    }
+  }
+});
