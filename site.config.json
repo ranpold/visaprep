@@ -1,0 +1,12 @@
+{
+  "siteName": "VisaPrep",
+  "siteUrl": "https://ranpold.github.io/visaprep",
+  "customDomain": "",
+  "contactEmail": "hello@example.com",
+  "adsenseClient": "ca-pub-XXXXXXXXXXXXXXXX",
+  "adSlots": {
+    "top": "",
+    "mid": "",
+    "side": ""
+  }
+}

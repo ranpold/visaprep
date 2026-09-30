@@ -1,0 +1,115 @@
+<!--meta {"title": "Free Travel Itinerary Builder for Visa Applications (PDF)", "description": "Create a clean, printable travel itinerary PDF for your visa application: flights, hotels, and a day-by-day plan. Free, no sign-up, honest, and consulate-friendly.", "scripts": ["/assets/itinerary.js"]} -->
+<section class="wrap no-print" style="padding-top:32px">
+  <h1>Travel Itinerary Builder</h1>
+  <p class="muted narrow">Enter your planned flights, stays, and daily plans. Your itinerary PDF is marked as a <strong>plan</strong>, not a ticket, and shows the real status of each item. That's what most consulates ask for. Drafts save automatically in your browser.</p>
+  <div class="notice narrow"><strong>Don't buy non-refundable tickets before your visa is approved.</strong> If your consulate insists on a verifiable reservation, use a <a href="{{base}}/guides/free-24-hour-flight-hold">free 24-hour hold</a> or a refundable fare, then set that flight's status to "Held" or "Booked".</div>
+</section>
+
+<div class="wrap tool">
+  <form id="it-form" class="no-print" autocomplete="off">
+    <fieldset>
+      <legend>Trip &amp; travellers</legend>
+      <div class="row">
+        <div><label for="tripTitle">Trip title</label><input id="tripTitle" name="tripTitle" placeholder="Tourism trip to France &amp; Italy"></div>
+        <div><label for="purpose">Purpose of travel</label>
+          <select id="purpose" name="purpose"><option>Tourism</option><option>Business</option><option>Visiting family / friends</option><option>Conference / event</option><option>Study visit</option><option>Transit</option><option>Other</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label for="travellers">Traveller name(s), one per line</label><textarea id="travellers" name="travellers" placeholder="Priya Sharma&#10;Arjun Sharma"></textarea></div>
+        <div><label for="contact">Contact (email / phone)</label><input id="contact" name="contact" placeholder="priya@example.com"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Flights</legend>
+      <div id="flights"></div>
+      <button type="button" class="btn btn-ghost btn-sm" data-add="flights">+ Add flight</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Accommodation</legend>
+      <div id="stays"></div>
+      <button type="button" class="btn btn-ghost btn-sm" data-add="stays">+ Add stay</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Day-by-day plan <span class="muted">(optional)</span></legend>
+      <div id="days"></div>
+      <button type="button" class="btn btn-ghost btn-sm" data-add="days">+ Add day</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Notes <span class="muted">(optional)</span></legend>
+      <textarea id="notes" name="notes" placeholder="E.g. Travelling by train between Paris and Rome on 14 May."></textarea>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="print">Download PDF</button>
+      <button type="button" class="btn btn-ghost" id="sample">Load example</button>
+      <button type="button" class="btn btn-ghost" id="reset">Clear all</button>
+    </div>
+    <p class="muted" style="font-size:.85rem">Tip: in the print dialog, choose "Save as PDF" as the destination.</p>
+  </form>
+
+  <div class="print-area">
+    <div class="sticky">
+      <p class="muted no-print" style="margin:0 0 8px;font-size:.9rem">Live preview</p>
+      <div class="paper" id="preview"></div>
+      {{ad:side}}
+    </div>
+  </div>
+</div>
+
+<template id="tpl-flights">
+  <div class="repeat">
+    <button type="button" class="btn-link remove">Remove</button>
+    <p class="repeat-title">Flight</p>
+    <div class="row">
+      <div><label>Date</label><input type="date" data-k="date"></div>
+      <div><label>Airline</label><input data-k="airline" placeholder="Air France"></div>
+      <div><label>Flight no. <span class="muted">(optional)</span></label><input data-k="flightNo" placeholder="AF 217"></div>
+    </div>
+    <div class="row">
+      <div><label>From</label><input data-k="from" placeholder="Mumbai (BOM)"></div>
+      <div><label>To</label><input data-k="to" placeholder="Paris (CDG)"></div>
+    </div>
+    <div class="row">
+      <div><label>Departs</label><input type="time" data-k="dep"></div>
+      <div><label>Arrives</label><input type="time" data-k="arr"></div>
+      <div><label>Status</label><select data-k="status"><option>Planned (not booked)</option><option>Held (free hold)</option><option>Booked (refundable)</option><option>Booked</option></select></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-stays">
+  <div class="repeat">
+    <button type="button" class="btn-link remove">Remove</button>
+    <p class="repeat-title">Stay</p>
+    <div class="row">
+      <div><label>Hotel / host name</label><input data-k="name" placeholder="Hotel Le Marais"></div>
+      <div><label>City</label><input data-k="city" placeholder="Paris"></div>
+    </div>
+    <div class="row">
+      <div><label>Address <span class="muted">(optional)</span></label><input data-k="address" placeholder="12 Rue de Rivoli, 75004"></div>
+    </div>
+    <div class="row">
+      <div><label>Check-in</label><input type="date" data-k="in"></div>
+      <div><label>Check-out</label><input type="date" data-k="out"></div>
+      <div><label>Status</label><select data-k="status"><option>Planned (not booked)</option><option>Reserved (free cancellation)</option><option>Booked</option><option>Staying with host</option></select></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-days">
+  <div class="repeat">
+    <button type="button" class="btn-link remove">Remove</button>
+    <div class="row">
+      <div><label>Date</label><input type="date" data-k="date"></div>
+      <div><label>City</label><input data-k="city" placeholder="Paris"></div>
+    </div>
+    <div class="row">
+      <div><label>Plans</label><input data-k="plan" placeholder="Louvre, Seine walk, Montmartre"></div>
+    </div>
+  </div>
+</template>

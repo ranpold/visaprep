@@ -1,0 +1,76 @@
+<!--meta {"title": "Free Visa Cover Letter Generator", "description": "Generate a clear, well-structured visa cover letter in minutes for tourism, business or family visits. Covers purpose, itinerary, funding and ties to home. Free, no sign-up.", "scripts": ["/assets/cover-letter.js"]} -->
+<section class="wrap no-print" style="padding-top:32px">
+  <h1>Visa Cover Letter Generator</h1>
+  <p class="muted narrow">A good cover letter explains your trip in plain language and points the officer to your evidence. Fill in what applies, then edit the text freely before you print it. Keep every statement true and backed by a document.</p>
+</section>
+
+<div class="wrap tool">
+  <form id="cl-form" class="no-print" autocomplete="off">
+    <fieldset>
+      <legend>You</legend>
+      <div class="row">
+        <div><label for="name">Full name (as in passport)</label><input id="name" placeholder="Priya Sharma"></div>
+        <div><label for="passport">Passport number</label><input id="passport" placeholder="Z1234567"></div>
+      </div>
+      <div class="row">
+        <div><label for="address">Your address</label><textarea id="address" placeholder="Flat 4B, Palm Residency&#10;Bandra West, Mumbai 400050&#10;India"></textarea></div>
+        <div><label for="email">Email / phone</label><input id="email" placeholder="priya@example.com"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>The trip</legend>
+      <div class="row">
+        <div><label for="embassy">Addressed to</label><input id="embassy" placeholder="Consulate General of France, Mumbai"></div>
+        <div><label for="visaType">Visa requested</label><input id="visaType" placeholder="Schengen short-stay (type C) visa"></div>
+      </div>
+      <div class="row">
+        <div><label for="purpose">Purpose</label>
+          <select id="purpose"><option value="tourism">Tourism</option><option value="business">Business</option><option value="family">Visiting family / friends</option><option value="event">Conference / event</option></select>
+        </div>
+        <div><label for="countries">Destination(s)</label><input id="countries" placeholder="France and Italy"></div>
+      </div>
+      <div class="row">
+        <div><label for="start">Arrival date</label><input type="date" id="start"></div>
+        <div><label for="end">Departure date</label><input type="date" id="end"></div>
+      </div>
+      <div><label for="plans">Short description of plans</label><textarea id="plans" placeholder="I will spend 5 days in Paris visiting museums and Versailles, then travel by train to Rome for 5 days."></textarea></div>
+      <div style="margin-top:12px"><label for="host">Host / inviting company <span class="muted">(if any)</span></label><input id="host" placeholder="My sister, Anjali Sharma, residing in Paris"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Funding &amp; ties to home</legend>
+      <div class="row">
+        <div><label for="job">Occupation &amp; employer</label><input id="job" placeholder="Senior Analyst at Infosys Ltd, Mumbai"></div>
+        <div><label for="funding">Who pays for the trip</label>
+          <select id="funding"><option value="self">I will pay myself</option><option value="sponsor">A sponsor will pay</option><option value="employer">My employer will pay</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label for="sponsor">Sponsor name &amp; relation <span class="muted">(if sponsored)</span></label><input id="sponsor" placeholder="My father, Rajesh Sharma"></div>
+      </div>
+      <div><label for="ties">Reasons you will return</label><textarea id="ties" placeholder="Approved leave until 21 May; ongoing employment; own apartment in Mumbai; family responsibilities."></textarea></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Documents enclosed</legend>
+      <div id="docs" class="row"></div>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="print">Download PDF</button>
+      <button type="button" class="btn btn-ghost" id="copy">Copy text</button>
+      <button type="button" class="btn btn-ghost" id="txt">Download .txt</button>
+      <button type="button" class="btn btn-ghost" id="reset">Clear</button>
+    </div>
+    <p class="muted" id="status" role="status" style="font-size:.85rem"></p>
+  </form>
+
+  <div class="print-area">
+    <div class="sticky">
+      <p class="muted no-print" style="margin:0 0 8px;font-size:.9rem">Preview. You can click into the letter and edit it directly.</p>
+      <div class="paper letter" id="letter" contenteditable="true" spellcheck="true"></div>
+      {{ad:side}}
+    </div>
+  </div>
+</div>
