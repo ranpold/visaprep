@@ -12,7 +12,7 @@ const TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 const PLACES = "https://autocomplete.travelpayouts.com/places2";
 const IATA = /^[A-Z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CACHE_VERSION = "3";
+const CACHE_VERSION = "5";
 
 export default {
   async fetch(request, env, ctx) {
@@ -41,7 +41,10 @@ async function cached(request, ctx, ttl, produce) {
   const hit = await cache.match(key);
   if (hit) return hit;
   const res = await produce();
-  if (res.status === 200) {
+  // Don't cache empty answers: they're often caused by a transient upstream error or rate limit.
+  const empty = res.headers.get("X-Empty") === "1";
+  res.headers.delete("X-Empty");
+  if (res.status === 200 && !empty) {
     // Edge keeps it for `ttl`; browsers only 5 minutes, so fixes reach users quickly.
     res.headers.set("Cache-Control", `public, max-age=300, s-maxage=${ttl}`);
     ctx.waitUntil(cache.put(key, res.clone()));
@@ -89,7 +92,7 @@ async function flights(url, env) {
 
   const toSet = new Set(airportsOf(to));
   const [timetable, fares] = await Promise.all([
-    env.ADB_KEY ? directFlights(env, from, toSet, date).catch(logEmpty("timetable")) : [],
+    env.ADB_KEY ? timetableFlights(env, from, toSet, date).catch(logEmpty("timetable")) : [],
     env.TP_TOKEN ? search(env, from, to, date).catch(logEmpty("fares")) : [],
   ]);
 
@@ -117,9 +120,11 @@ async function flights(url, env) {
       .forEach(add);
   }
 
-  // Direct first, then by departure time.
-  results.sort((a, b) => a.stops - b.stops || (a.depDate + a.depTime).localeCompare(b.depDate + b.depTime));
-  return json({ exact, date, results: results.slice(0, 20) });
+  // Direct first (by departure time), then connections (fastest first).
+  results.sort((a, b) => a.stops - b.stops || (a.stops ? a.durationMin - b.durationMin : (a.depDate + a.depTime).localeCompare(b.depDate + b.depTime)));
+  const res = json({ exact, date, results: results.slice(0, 20) });
+  if (!results.length) res.headers.set("X-Empty", "1");
+  return res;
 }
 
 const logEmpty = (what) => (err) => {
@@ -171,16 +176,106 @@ async function originAirports(code) {
   return all.slice(0, 2);
 }
 
-async function directFlights(env, from, toSet, date) {
+// Direct flights from the timetable, plus one-stop connections when there are few directs.
+async function timetableFlights(env, from, toSet, date) {
   const origins = await originAirports(from);
-  const lists = await Promise.all(origins.map((a) => departures(env, a, date)));
-  // Names are resolved here, not only when cached, so KV entries pick up reference-data fixes.
-  return lists.flat().filter((f) => toSet.has(f.to)).map((f) => ({ ...f, airlineName: ref.airlines[f.airline] || f.airlineName }));
+  const originDeps = (await Promise.all(origins.map((a) => departures(env, a, date)))).flat().map(withName);
+  const direct = originDeps.filter((f) => toSet.has(f.to));
+  if (direct.length >= 3) return direct;
+  const conns = await connections(env, new Set(origins), originDeps, toSet).catch(logEmpty("connections"));
+  return [...direct, ...conns];
 }
+
+// Names are resolved at read time, not only when cached, so KV entries pick up reference-data fixes.
+const withName = (f) => ({ ...f, airlineName: ref.airlines[f.airline] || f.airlineName });
+
+const MIN_LAYOVER = 75; // minutes, same-airport transfer
+const MAX_LAYOVER = 12 * 60;
+const MAX_HUBS = 3;
+
+const hasRoute = (from, to) => {
+  const r = ref.routes[from];
+  if (!r) return false;
+  for (let i = 0; i < r.length; i += 3) if (r.slice(i, i + 3) === to) return true;
+  return false;
+};
+
+// One-stop itineraries: first legs are real departures from the origin today; hubs are picked
+// from the route map (free) and only those hubs' timetables are fetched.
+async function connections(env, originSet, originDeps, toSet) {
+  const byHub = new Map();
+  for (const f of originDeps) {
+    if (!f.arrUtc || toSet.has(f.to) || originSet.has(f.to)) continue;
+    if (![...toSet].some((d) => hasRoute(f.to, d))) continue;
+    if (!byHub.has(f.to)) byHub.set(f.to, []);
+    byHub.get(f.to).push(f);
+  }
+  // Prefer big hubs (most onward routes), then those with more flights from the origin.
+  const hubs = [...byHub.keys()]
+    .sort((a, b) => (ref.routes[b]?.length || 0) - (ref.routes[a]?.length || 0) || byHub.get(b).length - byHub.get(a).length)
+    .slice(0, MAX_HUBS);
+
+  const out = [];
+  await Promise.all(
+    hubs.map(async (hub) => {
+      const firstLegs = byHub.get(hub);
+      // Onward flights can leave the day of arrival or the next day (overnight layovers).
+      const days = new Set();
+      for (const f of firstLegs) {
+        days.add(f.arrDate);
+        days.add(addDays(f.arrDate, 1));
+      }
+      const onward = (await Promise.all([...days].slice(0, 3).map((d) => departures(env, hub, d))))
+        .flat()
+        .map(withName)
+        .filter((g) => toSet.has(g.to) && g.depUtc);
+      for (const f of firstLegs) {
+        // For each first leg, keep its best (shortest) valid layover.
+        let best = null;
+        for (const g of onward) {
+          const lay = (g.depUtc - f.arrUtc) / 60000;
+          if (lay < MIN_LAYOVER || lay > MAX_LAYOVER) continue;
+          if (!best || g.depUtc < best.depUtc) best = g;
+        }
+        if (best) out.push(connection(f, best));
+      }
+    })
+  );
+  // Fastest overall first; keep a varied, short list.
+  return out.sort((a, b) => a.durationMin - b.durationMin).slice(0, 8);
+}
+
+function connection(f, g) {
+  const hub = place(f.to);
+  const sameAirline = f.airline === g.airline;
+  return {
+    type: "connection",
+    segments: [f, g],
+    airline: f.airline,
+    airlineName: sameAirline ? f.airlineName : `${f.airlineName} + ${g.airlineName}`,
+    flightNo: `${f.flightNo} / ${g.flightNo}`,
+    from: f.from,
+    fromLabel: f.fromLabel,
+    to: g.to,
+    toLabel: g.toLabel,
+    via: hub.code,
+    viaLabel: `${hub.city} (${hub.code})`,
+    layoverMin: Math.round((g.depUtc - f.arrUtc) / 60000),
+    depDate: f.depDate,
+    depTime: f.depTime,
+    arrDate: g.arrDate,
+    arrTime: g.arrTime,
+    durationMin: Math.round((g.arrUtc - f.depUtc) / 60000),
+    stops: 1,
+    source: "timetable",
+  };
+}
+
+const addDays = (d, n) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
 
 // All scheduled departures from one airport on one local day, cached in KV.
 async function departures(env, airport, date) {
-  const key = `adb:v1:${airport}:${date}`;
+  const key = `adb:v2:${airport}:${date}`;
   if (env.CACHE) {
     const hit = await env.CACHE.get(key, "json");
     if (hit) return hit;
@@ -204,7 +299,13 @@ async function fids(env, airport, fromLocal, toLocal) {
   const q = new URL(req.url);
   for (const [k, v] of Object.entries({ direction: "Departure", withLeg: "true", withCancelled: "false", withCodeshared: "false", withCargo: "false", withPrivate: "false", withLocation: "false" }))
     q.searchParams.set(k, v);
-  const r = await fetch(q, { headers: req.headers });
+  let r;
+  // The free RapidAPI plan rate-limits bursts; back off and retry a few times.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    r = await fetch(q, { headers: req.headers });
+    if (r.status !== 429) break;
+    await new Promise((ok) => setTimeout(ok, 1200 * (attempt + 1)));
+  }
   if (r.status === 204) return [];
   if (!r.ok) throw new Error(`aerodatabox ${airport} ${r.status} ${await r.text().catch(() => "")}`.slice(0, 300));
   const body = await r.json();
@@ -238,6 +339,8 @@ function timetableEntry(e, originCode) {
     arrDate: a.date,
     arrTime: a.time,
     durationMin: dur > 0 ? dur : 0,
+    depUtc: dep.scheduledTime.utc ? utcMs(dep.scheduledTime.utc) : 0,
+    arrUtc: arr.scheduledTime?.utc ? utcMs(arr.scheduledTime.utc) : 0,
     stops: 0,
     aircraft: e.aircraft?.model || "",
     source: "timetable",

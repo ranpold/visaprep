@@ -123,32 +123,36 @@
 
   async function lookup(from, to, date) {
     // `v` changes when the API's result format or logic changes, bypassing stale browser caches.
-    const r = await fetch(`${base}/api/flights?from=${from}&to=${to}&date=${date}&v=2`);
+    const r = await fetch(`${base}/api/flights?from=${from}&to=${to}&date=${date}&v=3`);
     const body = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(body.error || "Flight lookup failed.");
     return body;
   }
 
   // Put a chosen flight into the itinerary: reuse the row this leg filled before, else an empty row, else a new one.
+  // Put a chosen option into the itinerary: one row per flight segment (a connection is two rows).
+  // Rows this leg filled before are replaced; empty manual rows are reused before adding new ones.
   function apply(leg, f) {
-    const rows = [...$("flights").children];
+    const box = $("flights");
+    box.querySelectorAll(`[data-leg="${leg}"]`).forEach((r) => r.remove());
     const isEmpty = (row) => [...row.querySelectorAll("input")].every((i) => !i.value);
-    let row = rows.find((r) => r.dataset.leg === leg) || rows.find((r) => !r.dataset.leg && isEmpty(r));
-    if (!row) row = it.addItem("flights");
-    row.dataset.leg = leg;
-    const set = (k, v) => (row.querySelector(`[data-k="${k}"]`).value = v);
-    set("date", f.depDate);
-    set("airline", f.airlineName);
-    set("flightNo", f.flightNo + (f.stops ? ` (${f.stops} stop${f.stops > 1 ? "s" : ""})` : ""));
-    set("from", f.fromLabel);
-    set("to", f.toLabel);
-    set("dep", f.depTime);
-    set("arr", f.arrTime);
-    set("status", "Planned (not booked)");
-    // Keep outbound above return.
-    const out = $("flights").querySelector('[data-leg="out"]');
-    const ret = $("flights").querySelector('[data-leg="ret"]');
-    if (out && ret && out.compareDocumentPosition(ret) & Node.DOCUMENT_POSITION_PRECEDING) $("flights").insertBefore(out, ret);
+    for (const seg of f.segments || [f]) {
+      const row = [...box.children].find((r) => !r.dataset.leg && isEmpty(r)) || it.addItem("flights");
+      row.dataset.leg = leg;
+      const set = (k, v) => (row.querySelector(`[data-k="${k}"]`).value = v);
+      set("date", seg.depDate);
+      set("airline", seg.airlineName);
+      set("flightNo", seg.flightNo + (seg.stops ? ` (${seg.stops} stop${seg.stops > 1 ? "s" : ""})` : ""));
+      set("from", seg.fromLabel);
+      set("to", seg.toLabel);
+      set("dep", seg.depTime);
+      set("arr", seg.arrTime);
+      set("status", "Planned (not booked)");
+      box.appendChild(row);
+    }
+    // Outbound rows first, then return, then anything the traveller added by hand.
+    const rank = (r) => ({ out: 0, ret: 1 })[r.dataset.leg] ?? 2;
+    [...box.children].sort((a, b) => rank(a) - rank(b)).forEach((r) => box.appendChild(r));
     fillStayDates();
     it.update();
   }
@@ -157,7 +161,8 @@
   function fillStayDates() {
     const stay = $("stays").firstElementChild;
     if (!stay) return;
-    const outRow = $("flights").querySelector('[data-leg="out"]');
+    // Check in on the day the last outbound segment departs (connections span two rows).
+    const outRow = [...$("flights").querySelectorAll('[data-leg="out"]')].pop();
     const retRow = $("flights").querySelector('[data-leg="ret"]');
     const inEl = stay.querySelector('[data-k="in"]');
     const outEl = stay.querySelector('[data-k="out"]');
@@ -179,12 +184,14 @@
       const li = document.createElement("li");
       li.className = "f-opt" + (i === 0 ? " picked" : "");
       li.innerHTML = `
-        <div class="f-main">${esc(f.depTime)} → ${esc(f.arrTime)}${esc(dayShift(f.depDate, f.arrDate))} · ${esc(f.airlineName)} ${esc(f.flightNo.replace(f.airline + " ", ""))}</div>
+        <div class="f-main">${esc(f.depTime)} → ${esc(f.arrTime)}${esc(dayShift(f.depDate, f.arrDate))} · ${esc(f.airlineName)} ${f.segments ? "" : esc(f.flightNo.replace(f.airline + " ", ""))}</div>
         <div class="f-act">
           <button type="button" class="btn btn-ghost btn-sm">${i === 0 ? "Selected" : "Use this"}</button>
           ${f.link ? `<a href="${esc(f.link)}" target="_blank" rel="sponsored noopener">Check fares ↗</a>` : ""}
         </div>
-        <div class="f-sub">${esc(niceDate(f.depDate))} · ${esc(f.fromLabel)} → ${esc(f.toLabel)} · ${esc(fmtDur(f.durationMin))} · ${f.stops ? `${f.stops} stop${f.stops > 1 ? "s" : ""}` : "Direct"}${f.aircraft ? ` · ${esc(f.aircraft)}` : ""}${f.price ? ` · recent fare from $${esc(f.price)}` : ""} · <em>${f.source === "timetable" ? "airline timetable" : "recent fare search"}</em></div>`;
+        <div class="f-sub">${esc(niceDate(f.depDate))} · ${f.segments
+          ? `${esc(f.fromLabel)} → ${esc(f.viaLabel)} → ${esc(f.toLabel)} · ${esc(fmtDur(f.durationMin))} total · 1 stop, ${esc(fmtDur(f.layoverMin))} layover · ${esc(f.flightNo)}`
+          : `${esc(f.fromLabel)} → ${esc(f.toLabel)} · ${esc(fmtDur(f.durationMin))} · ${f.stops ? `${f.stops} stop${f.stops > 1 ? "s" : ""}` : "Direct"}`}${f.aircraft ? ` · ${esc(f.aircraft)}` : ""}${f.price ? ` · recent fare from $${esc(f.price)}` : ""} · <em>${f.source === "timetable" ? "airline timetable" : "recent fare search"}</em></div>`;
       li.querySelector("button").addEventListener("click", () => {
         ul.querySelectorAll(".f-opt").forEach((o) => {
           o.classList.remove("picked");
@@ -224,7 +231,7 @@
       }
       if (!r) {
         // One way: drop a return leg filled by an earlier round-trip search.
-        $("flights").querySelector('[data-leg="ret"]')?.remove();
+        $("flights").querySelectorAll('[data-leg="ret"]').forEach((r) => r.remove());
       }
       results.append(renderGroup("out", "Outbound", o));
       if (r) results.append(renderGroup("ret", "Return", r));
