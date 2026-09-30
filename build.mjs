@@ -46,7 +46,7 @@ for (const file of walk(SRC)) {
   const rel = relative(SRC, file);
   const path = "/" + rel.replace(/index\.html$/, "").replace(/\.html$/, "");
   const canonical = config.siteUrl + path;
-  urls.push({ loc: canonical, priority: path === "/" ? "1.0" : "0.8" });
+  if (rel !== "404.html") urls.push({ loc: canonical, priority: path === "/" ? "1.0" : "0.8" });
 
   let body = raw.slice(m[0].length);
   body = body.replace(/\{\{ad:(\w+)\}\}/g, (_, key) => adUnit(config.adSlots[key] || ""));

@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "visaprep",
+  "compatibility_date": "2026-09-30",
+  // Static site only: Cloudflare serves public/ directly (free, no Worker script).
+  "assets": {
+    "directory": "./public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
