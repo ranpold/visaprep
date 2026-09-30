@@ -1,8 +1,8 @@
 {
-  "siteName": "VisaPrep",
-  "siteUrl": "https://visaprep.ranjith-chowdary.workers.dev",
+  "siteName": "VisaItinerary",
+  "siteUrl": "https://visaitinerary.org",
   "customDomain": "",
-  "contactEmail": "hello@example.com",
+  "contactEmail": "hello@visaitinerary.org",
   "adsenseClient": "ca-pub-XXXXXXXXXXXXXXXX",
   "adSlots": {
     "top": "",

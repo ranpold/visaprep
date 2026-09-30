@@ -188,3 +188,18 @@ textarea { min-height: 90px; resize: vertical; }
 .f-opt .f-sub { color: var(--muted); font-size: .82rem; }
 .f-opt .f-act { grid-row: span 2; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .f-opt .f-act a { font-size: .8rem; }
+
+/* Trip-type toggle + airport autocomplete */
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 99px; padding: 3px; margin-bottom: 12px; }
+.seg label { margin: 0; padding: 5px 14px; border-radius: 99px; cursor: pointer; font-size: .88rem; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg label:has(input:checked) { background: var(--brand); color: var(--brand-ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
+.ac { position: relative; }
+.ac-list { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); max-height: 300px; overflow-y: auto; }
+.ac-list li { display: flex; gap: 10px; align-items: baseline; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: .92rem; }
+.ac-list li[aria-selected="true"], .ac-list li:hover { background: var(--brand-soft); }
+.ac-list .ac-code { font-weight: 700; min-width: 36px; color: var(--brand); }
+.ac-list .ac-sub { color: var(--muted); font-size: .8rem; display: block; }
+.ac-list .ac-empty { color: var(--muted); cursor: default; }
+.ac-list li.ac-child { padding-left: 26px; }

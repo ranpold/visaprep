@@ -12,7 +12,7 @@ const TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 const PLACES = "https://autocomplete.travelpayouts.com/places2";
 const IATA = /^[A-Z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CACHE_VERSION = "2";
+const CACHE_VERSION = "3";
 
 export default {
   async fetch(request, env, ctx) {
@@ -60,14 +60,23 @@ async function places(url) {
   const r = await fetch(q);
   if (!r.ok) throw new Error(`places ${r.status}`);
   const data = await r.json();
-  return json({
-    places: data.slice(0, 8).map((p) => ({
-      code: p.code,
-      type: p.type,
-      label: p.type === "airport" ? `${p.city_name} – ${p.name} (${p.code})` : `${p.name}, all airports (${p.code})`,
-      country: p.country_name,
-    })),
-  });
+  // Order: each city first, then its airports (busiest first), so "Paris" shows PAR, CDG, ORY...
+  const rows = data.filter((p) => p.type === "city" || ref.airports[p.code]);
+  const cities = rows.filter((p) => p.type === "city");
+  const airports = rows.filter((p) => p.type === "airport").sort((a, b) => (b.weight || 0) - (a.weight || 0));
+  const out = [];
+  for (const c of cities) {
+    const own = airports.filter((a) => a.city_code === c.code);
+    // A city with one airport is simpler to show as just that airport.
+    if (own.length !== 1) out.push({ code: c.code, type: "city", name: c.name, sub: `All airports · ${c.country_name}`, label: `${c.name}, all airports (${c.code})` });
+    for (const a of own) out.push(airportRow(a, own.length > 1));
+  }
+  for (const a of airports) if (!cities.some((c) => c.code === a.city_code)) out.push(airportRow(a, false));
+  return json({ places: out.slice(0, 10) });
+}
+
+function airportRow(a, parent) {
+  return { code: a.code, type: "airport", name: a.name, sub: `${a.city_name}, ${a.country_name}`, label: `${a.city_name} – ${a.name} (${a.code})`, parent };
 }
 
 async function flights(url, env) {

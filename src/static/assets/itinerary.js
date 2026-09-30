@@ -21,6 +21,8 @@
     node.querySelectorAll("[data-k]").forEach((el) => {
       if (data[el.dataset.k] != null) el.value = data[el.dataset.k];
     });
+    // Rows filled by the flight finder remember their leg so a new search replaces them.
+    if (data._leg) node.dataset.leg = data._leg;
     node.querySelector(".remove").addEventListener("click", () => {
       node.remove();
       update();
@@ -41,6 +43,7 @@
       state[list] = [...document.getElementById(list).children].map((item) => {
         const o = {};
         item.querySelectorAll("[data-k]").forEach((el) => (o[el.dataset.k] = el.value));
+        if (item.dataset.leg) o._leg = item.dataset.leg;
         return o;
       });
     }

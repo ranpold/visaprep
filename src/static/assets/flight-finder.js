@@ -10,35 +10,108 @@
   const results = $("f-results");
   const KEY = "visaprep.finder.v1";
 
-  // --- Airport / city autocomplete (native datalist, codes parsed from "(XXX)") ---
-  const codeOf = (v) => (/\(([A-Z]{3})\)\s*$/.exec(v || "") || [])[1] || (/^[A-Za-z]{3}$/.test(v.trim()) ? v.trim().toUpperCase() : "");
-  let timer;
+  // --- Airport / city autocomplete (custom combobox; the chosen code lives in input.dataset.code) ---
+  const codeOf = (input) => {
+    if (input.dataset.code) return input.dataset.code;
+    const v = input.value.trim();
+    return (/\(([A-Z]{3})\)\s*$/.exec(v) || [])[1] || (/^[A-Z]{3}$/.test(v) ? v : "");
+  };
+
   document.querySelectorAll("[data-place]").forEach((input) => {
-    const list = document.getElementById(input.getAttribute("list"));
+    const list = document.getElementById(input.getAttribute("aria-controls"));
+    let items = [];
+    let active = -1;
+    let timer;
+    let seq = 0;
+
+    const close = () => {
+      list.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      active = -1;
+    };
+    const highlight = (i) => {
+      active = i;
+      [...list.children].forEach((li, j) => li.setAttribute("aria-selected", String(j === i)));
+      if (list.children[i]) list.children[i].scrollIntoView({ block: "nearest" });
+    };
+    const choose = (p) => {
+      input.value = p.label;
+      input.dataset.code = p.code;
+      close();
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const render = (places, term) => {
+      items = places;
+      list.innerHTML = places.length
+        ? places.map((p, i) => `<li role="option" id="${list.id}-${i}" class="${p.parent ? "ac-child" : ""}"><span class="ac-code">${esc(p.code)}</span><span>${esc(p.name)}<span class="ac-sub">${esc(p.sub)}</span></span></li>`).join("")
+        : `<li class="ac-empty">No airports match "${esc(term)}"</li>`;
+      list.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+      active = -1;
+    };
+
     input.addEventListener("input", () => {
+      delete input.dataset.code;
       clearTimeout(timer);
       const term = input.value.trim();
-      if (term.length < 2 || codeOf(term)) return;
+      if (term.length < 2) return close();
       timer = setTimeout(async () => {
+        const mine = ++seq;
         try {
-          const r = await fetch(`${base}/api/places?term=${encodeURIComponent(term)}`);
+          const r = await fetch(`${base}/api/places?term=${encodeURIComponent(term)}&v=2`);
           const { places = [] } = await r.json();
-          list.innerHTML = places.map((p) => `<option value="${esc(p.label)}">${esc(p.country)}</option>`).join("");
+          if (mine === seq) render(places, term); // ignore out-of-order responses
         } catch {
-          /* suggestions are optional; a typed 3-letter code still works */
+          close();
         }
-      }, 200);
+      }, 150);
+    });
+    // Selecting on focus means typing replaces a previous choice instead of editing inside it.
+    input.addEventListener("focus", () => input.select());
+    input.addEventListener("keydown", (e) => {
+      if (list.hidden || !items.length) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(active + 1, items.length - 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); highlight(Math.max(active - 1, 0)); }
+      else if (e.key === "Enter") { e.preventDefault(); choose(items[Math.max(active, 0)]); }
+      else if (e.key === "Escape") close();
+    });
+    // mousedown (not click) so the choice lands before the input's blur closes the list.
+    list.addEventListener("mousedown", (e) => {
+      const li = e.target.closest("li[role=option]");
+      if (!li) return;
+      e.preventDefault();
+      choose(items[[...list.children].indexOf(li)]);
+    });
+    input.addEventListener("blur", () => {
+      setTimeout(close, 100);
+      // Accept a typed 3-letter code without picking from the list.
+      const v = input.value.trim().toUpperCase();
+      if (!input.dataset.code && /^[A-Z]{3}$/.test(v)) input.dataset.code = v;
     });
   });
+
+  // --- Trip type ---
+  const retWrap = $("f-ret-wrap");
+  const oneWay = () => document.querySelector('input[name="f-trip"]:checked').value === "oneway";
+  const syncTrip = () => {
+    retWrap.hidden = oneWay();
+    saved.trip = oneWay() ? "oneway" : "round";
+    window.store.set(KEY, saved);
+  };
 
   const saved = window.store.get(KEY, {});
   ["f-from", "f-to", "f-out", "f-ret"].forEach((id) => {
     if (saved[id]) $(id).value = saved[id];
+    if (saved[id + "-code"]) $(id).dataset.code = saved[id + "-code"];
     $(id).addEventListener("change", () => {
       saved[id] = $(id).value;
+      saved[id + "-code"] = $(id).dataset.code || "";
       window.store.set(KEY, saved);
     });
   });
+  if (saved.trip === "oneway") document.querySelector('input[name="f-trip"][value="oneway"]').checked = true;
+  document.querySelectorAll('input[name="f-trip"]').forEach((r) => r.addEventListener("change", syncTrip));
+  syncTrip();
 
   // --- Search ---
   const fmtDur = (m) => (m ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : "");
@@ -128,13 +201,15 @@
   }
 
   $("f-go").addEventListener("click", async () => {
-    const from = codeOf($("f-from").value);
-    const to = codeOf($("f-to").value);
+    const from = codeOf($("f-from"));
+    const to = codeOf($("f-to"));
     const out = $("f-out").value;
-    const ret = $("f-ret").value;
+    const ret = oneWay() ? "" : $("f-ret").value;
     status.className = "finder-status";
     results.innerHTML = "";
     if (!from || !to) return fail("Pick a city or airport from the suggestions, or type a 3-letter code (e.g. BOM).");
+    if (from === to) return fail("From and To are the same.");
+    if (!oneWay() && !ret) return fail("Choose a return date, or switch to One way.");
     if (!out) return fail("Choose a departure date.");
     if (ret && ret < out) return fail("Return date is before the departure date.");
 
@@ -146,6 +221,10 @@
       if (r) {
         r.results = r.results.filter((f) => f.depDate > out);
         o.results = o.results.filter((f) => f.depDate < ret);
+      }
+      if (!r) {
+        // One way: drop a return leg filled by an earlier round-trip search.
+        $("flights").querySelector('[data-leg="ret"]')?.remove();
       }
       results.append(renderGroup("out", "Outbound", o));
       if (r) results.append(renderGroup("ret", "Return", r));

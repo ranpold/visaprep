@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "visaprep",
   "compatibility_date": "2026-09-30",
+  "routes": [{ "pattern": "visaitinerary.org", "custom_domain": true }],
+  // Keep the workers.dev URL up as a fallback; canonical tags point search engines at visaitinerary.org.
+  "workers_dev": true,
   "main": "worker/index.js",
   // Static pages come from public/; only /api/* runs Worker code.
   "assets": {

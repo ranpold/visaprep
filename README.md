@@ -1,4 +1,4 @@
-# VisaPrep
+# VisaItinerary
 
 A free, ad-supported toolkit for visa applicants: an honest alternative to paid "dummy ticket" sites.
 
