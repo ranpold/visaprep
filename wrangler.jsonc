@@ -18,7 +18,7 @@
     // Travelpayouts partner ID (earns commission on Aviasales click-throughs). TP_TOKEN is a secret.
     "TP_MARKER": "784042",
     // Travelpayouts project ID; enables tracked Booking.com links. Empty = plain Booking.com links.
-    "TP_TRS": ""
+    "TP_TRS": "579880"
   },
   // Caches AeroDataBox airport/day timetables so each costs API units only once.
   "kv_namespaces": [{ "binding": "CACHE", "id": "eb0306f004964f95878eafda41442b92" }],
