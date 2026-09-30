@@ -70,51 +70,90 @@
     return m ? { city: m[1], code: m[2] } : { city: label || "", code: "" };
   };
   const shortDate = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "");
+  const longDate = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "");
   const fmtDur = (m) => (m > 0 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : "");
-  const statusClass = (st) => (/confirmed|booked/i.test(st || "") ? "st-booked" : /held|reserved/i.test(st || "") ? "st-held" : "st-plan");
+  const statusClass = (st) => (/confirmed|booked/i.test(st || "") ? "is-booked" : /held|reserved|host/i.test(st || "") ? "is-held" : "is-plan");
+  const shortStatus = (st) => (st || "").replace(/\s*\(.*\)$/, "");
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const dayShift = (from, to) => (from && to && to > from ? Math.round((Date.parse(to) - Date.parse(from)) / 86400000) : 0);
 
-  function flightCard(f) {
-    const a = splitPlace(f.from), b = splitPlace(f.to);
-    const shift = f.arrDate && f.date && f.arrDate > f.date ? Math.round((Date.parse(f.arrDate) - Date.parse(f.date)) / 86400000) : 0;
+  // Consecutive flights that connect (same airport, next leaves within a day) form one journey.
+  function journeys(flights) {
+    const out = [];
+    flights.forEach((f, i) => {
+      const prev = flights[i - 1];
+      const connects =
+        prev &&
+        splitPlace(prev.to).code &&
+        splitPlace(prev.to).code === splitPlace(f.from).code &&
+        Date.parse(f.date) - Date.parse(prev.arrDate || prev.date) <= 86400000;
+      if (connects) out[out.length - 1].push(f);
+      else out.push([f]);
+    });
+    return out;
+  }
+
+  function journeyTitle(j, idx, all) {
+    if (all.length === 1) return "Flight";
+    const home = splitPlace(all[0][0].from).code;
+    if (idx === 0) return "Departure";
+    if (idx === all.length - 1 && home && splitPlace(j[j.length - 1].to).code === home) return "Return";
+    return `Journey ${idx + 1}`;
+  }
+
+  function journeyBlock(j, title) {
+    const first = j[0], last = j[j.length - 1];
+    const stops = j.length - 1;
+    const total = +first.depUtc && +last.arrUtc ? Math.round((+last.arrUtc - +first.depUtc) / 60000) : j.length === 1 ? +first.dur : 0;
+    const a = splitPlace(first.from), b = splitPlace(last.to);
+    // Year is already in the document header, so the journey bar stays short enough for one line.
+    const facts = [shortDate(first.date), stops ? plural(stops, "stop") : "Non-stop", fmtDur(total)].filter(Boolean);
+    const rows = j
+      .map((f, i) => {
+        let lay = "";
+        if (i) {
+          const p = j[i - 1];
+          const mins = +p.arrUtc && +f.depUtc ? Math.round((+f.depUtc - +p.arrUtc) / 60000) : 0;
+          const at = splitPlace(p.to);
+          lay = `<div class="it-lay"><span>${mins > 0 ? esc(fmtDur(mins)) + " layover" : "Connection"} · ${esc(at.city)}${at.code ? ` (${esc(at.code)})` : ""}</span></div>`;
+        }
+        return lay + segment(f);
+      })
+      .join("");
     return `
-      <div class="fl">
-        <div class="fl-top">
-          <span class="fl-air">${esc(f.airline) || "Airline"}${f.flightNo ? ` · <strong>${esc(f.flightNo)}</strong>` : ""}</span>
-          <span class="pill ${statusClass(f.status)}">${esc(f.status)}</span>
+      <section class="it-journey">
+        <header class="it-jhead">
+          <h3>${esc(title)}</h3>
+          <p class="it-route">${esc(a.city || "—")} <span aria-hidden="true">→</span> ${esc(b.city || "—")}</p>
+          <p class="it-facts">${facts.map(esc).join(" · ")}</p>
+        </header>
+        ${rows}
+      </section>`;
+  }
+
+  function segment(f) {
+    const a = splitPlace(f.from), b = splitPlace(f.to);
+    const shift = dayShift(f.date, f.arrDate);
+    const detail = [fmtDur(+f.dur), f.aircraft].filter(Boolean).join(" · ");
+    return `
+      <div class="it-seg">
+        <div class="it-times">
+          <div class="it-pt"><span class="it-time">${esc(f.dep) || "--:--"}</span><span class="it-code">${esc(a.code)}</span><span class="it-city">${esc(a.city)}</span></div>
+          <div class="it-track" aria-hidden="true"></div>
+          <div class="it-pt"><span class="it-time">${esc(f.arr) || "--:--"}${shift ? `<sup>+${shift}</sup>` : ""}</span><span class="it-code">${esc(b.code)}</span><span class="it-city">${esc(b.city)}${shift ? ` · ${esc(shortDate(f.arrDate))}` : ""}</span></div>
         </div>
-        <div class="fl-main">
-          <div class="fl-end">
-            <div class="fl-time">${esc(f.dep) || "--:--"}</div>
-            <div class="fl-code">${esc(a.code || a.city)}</div>
-            <div class="fl-city">${esc(a.code ? a.city : "")}${a.code ? " · " : ""}${esc(shortDate(f.date))}</div>
-          </div>
-          <div class="fl-mid">
-            <div class="fl-dur">${esc(fmtDur(+f.dur))}</div>
-            <div class="fl-line"><span>✈</span></div>
-            <div class="fl-sub">${esc(f.aircraft || "")}</div>
-          </div>
-          <div class="fl-end fl-r">
-            <div class="fl-time">${esc(f.arr) || "--:--"}${shift ? `<sup>+${shift}</sup>` : ""}</div>
-            <div class="fl-code">${esc(b.code || b.city)}</div>
-            <div class="fl-city">${esc(b.code ? b.city : "")}${b.code && (f.arrDate || f.date) ? " · " : ""}${esc(shortDate(f.arrDate || f.date))}</div>
-          </div>
+        <div class="it-carrier">
+          <div class="it-flno">${esc(f.flightNo) || "&nbsp;"}</div>
+          <div class="it-air">${esc(f.airline)}</div>
+          ${detail ? `<div class="it-det">${esc(detail)}</div>` : ""}
+          <div class="it-status ${statusClass(f.status)}">${esc(shortStatus(f.status))}</div>
         </div>
       </div>`;
   }
 
-  // Layover chip between two consecutive flights that connect at the same airport.
-  function layover(prev, next) {
-    const p = splitPlace(prev.to), n = splitPlace(next.from);
-    if (!p.code || p.code !== n.code || !+prev.arrUtc || !+next.depUtc) return "";
-    const mins = Math.round((+next.depUtc - +prev.arrUtc) / 60000);
-    if (mins <= 0 || mins > 24 * 60) return "";
-    return `<div class="layover">Layover in ${esc(p.city)} (${esc(p.code)}) · ${esc(fmtDur(mins))}</div>`;
-  }
-
   function render(s) {
-    const travellers = s.travellers.split("\n").map((t) => t.trim()).filter(Boolean);
     const inc = s.inc || { flights: true, stays: true, days: true };
+    const travellers = s.travellers.split("\n").map((t) => t.trim()).filter(Boolean);
     const flights = (inc.flights ? s.flights : []).filter((f) => f.from || f.to || f.date).sort((a, b) => ((a.date || "") + (a.dep || "")).localeCompare((b.date || "") + (b.dep || "")));
     const stays = (inc.stays ? s.stays : []).filter((h) => h.name || h.city).sort((a, b) => (a.in || "").localeCompare(b.in || ""));
     const days = (inc.days ? s.days : []).filter((d) => d.date || d.plan).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
@@ -122,59 +161,50 @@
     const start = allDates[0], end = allDates[allDates.length - 1];
     const tripDays = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1 : 0;
     const stayNights = stays.reduce((n, h) => n + (+nights(h.in, h.out) || 0), 0);
+    const js = journeys(flights);
     const origin = flights[0] ? splitPlace(flights[0].from).city : "";
-    // A flight's destination is only a connection hub if the next flight leaves from there within a day.
-    const isHub = (f, i) => {
-      const next = flights[i + 1];
-      if (!next || splitPlace(f.to).code !== splitPlace(next.from).code) return false;
-      return Date.parse(next.date) - Date.parse(f.arrDate || f.date) <= 86400000;
-    };
-    const flightDests = flights.filter((f, i) => !isHub(f, i)).map((f) => splitPlace(f.to).city);
-    const places = [...new Set([...stays.map((h) => h.city), ...flightDests].filter((c) => c && c !== origin))];
-    const empty = (msg) => `<p class="empty">${msg}</p>`;
+    const places = [...new Set([...stays.map((h) => h.city), ...js.map((j) => splitPlace(j[j.length - 1].to).city)].filter((c) => c && c !== origin))];
+    const empty = (msg) => `<p class="it-empty">${msg}</p>`;
 
+    preview.className = "paper itin";
     preview.innerHTML = `
-      <div class="doc-title">
-        <div>
-          <div class="doc-kicker">Travel Itinerary</div>
+      <header class="it-head">
+        <div class="it-titleblock">
+          <p class="it-kicker">Travel itinerary</p>
           <h2>${esc(s.tripTitle) || "My trip"}</h2>
-          <div class="doc-trav">${travellers.length ? travellers.map(esc).join(" · ") : '<span class="empty">Add traveller names</span>'}</div>
+          <p class="it-dates">${start ? `${esc(longDate(start))} – ${esc(longDate(end))}` : "Dates to be added"}</p>
         </div>
-        <div class="doc-meta">
-          <div><span>Purpose</span>${esc(s.purpose)}</div>
-          ${s.contact ? `<div><span>Contact</span>${esc(s.contact)}</div>` : ""}
-        </div>
-      </div>
+        <dl class="it-people">
+          <div><dt>${travellers.length === 1 ? "Traveller" : "Travellers"}</dt><dd>${travellers.length ? travellers.map(esc).join("<br>") : '<span class="it-empty">Add names</span>'}</dd></div>
+          <div><dt>Purpose</dt><dd>${esc(s.purpose)}</dd></div>
+          ${s.contact ? `<div><dt>Contact</dt><dd>${esc(s.contact)}</dd></div>` : ""}
+        </dl>
+      </header>
 
-      <div class="summary">
-        <div><span>Travel dates</span><strong>${start ? `${esc(shortDate(start))} – ${esc(shortDate(end))}` : "—"}</strong>${start ? `<em>${esc(start.slice(0, 4))}</em>` : ""}</div>
-        <div><span>Duration</span><strong>${tripDays ? esc(plural(tripDays, "day")) : "—"}</strong>${stayNights ? `<em>${esc(plural(stayNights, "night"))} accommodation</em>` : ""}</div>
-        <div><span>Destinations</span><strong>${places.length ? esc(places.slice(0, 3).join(", ")) : "—"}</strong>${places.length > 3 ? `<em>+${places.length - 3} more</em>` : ""}</div>
-        <div><span>Travellers</span><strong>${travellers.length || "—"}</strong></div>
-      </div>
+      <dl class="it-summary">
+        <div><dt>Destination${places.length === 1 ? "" : "s"}</dt><dd>${places.length ? esc(places.join(", ")) : "—"}</dd></div>
+        <div><dt>Duration</dt><dd>${tripDays ? esc(plural(tripDays, "day")) : "—"}${stayNights ? ` · ${esc(plural(stayNights, "night"))} stay` : ""}</dd></div>
+        <div><dt>Travellers</dt><dd>${travellers.length || "—"}</dd></div>
+      </dl>
 
-      ${inc.flights ? `<div class="doc-section">Flights</div>
-      ${flights.length ? flights.map((f, i) => (i ? layover(flights[i - 1], f) : "") + flightCard(f)).join("") : empty("Add your flights, or use Find flights")}` : ""}
+      ${inc.flights ? `<h3 class="it-sec">Flights</h3>${js.length ? js.map((j, i) => journeyBlock(j, journeyTitle(j, i, js))).join("") : empty("Add your flights, or use Find flights")}` : ""}
 
-      ${inc.stays ? `<div class="doc-section">Accommodation</div>
-      ${stays.length ? `<div class="stays">${stays.map((h) => `
-        <div class="stay">
-          <div class="stay-top"><strong>${esc(h.name) || "Accommodation"}</strong><span class="pill ${statusClass(h.status)}">${esc(h.status)}</span></div>
-          <div class="stay-city">${esc(h.city)}${h.address ? ` · ${esc(h.address)}` : ""}</div>
-          <div class="stay-dates">
-            <div><span>Check-in</span>${esc(shortDate(h.in)) || "—"}</div>
-            <div><span>Check-out</span>${esc(shortDate(h.out)) || "—"}</div>
-            <div><span>Nights</span>${nights(h.in, h.out) || "—"}</div>
-          </div>
-        </div>`).join("")}</div>` : empty("Add where you'll stay")}` : ""}
+      ${inc.stays ? `<h3 class="it-sec">Accommodation</h3>${stays.length ? `
+        <table class="it-table">
+          <thead><tr><th>Stay</th><th>Check-in</th><th>Check-out</th><th class="num">Nights</th><th>Status</th></tr></thead>
+          <tbody>${stays.map((h) => `<tr>
+            <td><strong>${esc(h.name) || "Accommodation"}</strong><span class="it-sub">${esc(h.city)}${h.address ? ` · ${esc(h.address)}` : ""}</span></td>
+            <td>${esc(shortDate(h.in)) || "—"}</td><td>${esc(shortDate(h.out)) || "—"}</td>
+            <td class="num">${nights(h.in, h.out) || "—"}</td>
+            <td><span class="it-status ${statusClass(h.status)}">${esc(shortStatus(h.status))}</span></td></tr>`).join("")}</tbody>
+        </table>` : empty("Add where you'll stay")}` : ""}
 
-      ${days.length ? `<div class="doc-section">Day-by-day plan</div><table class="plan"><tbody>
-        ${days.map((d) => `<tr><td class="plan-date">${esc(shortDate(d.date))}</td><td class="plan-city">${esc(d.city)}</td><td>${esc(d.plan)}</td></tr>`).join("")}
-      </tbody></table>` : ""}
+      ${days.length ? `<h3 class="it-sec">Day-by-day plan</h3>
+        <table class="it-table it-plan"><tbody>
+        ${days.map((d) => `<tr><td class="it-pdate">${esc(shortDate(d.date))}</td><td class="it-pcity">${esc(d.city)}</td><td>${esc(d.plan)}</td></tr>`).join("")}
+        </tbody></table>` : ""}
 
-      ${s.notes ? `<div class="doc-section">Notes</div><div style="white-space:pre-wrap">${esc(s.notes)}</div>` : ""}
-
-      <div class="doc-foot">Prepared by the traveller on ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. This document sets out planned travel; each ${inc.flights && inc.stays ? "flight and stay" : inc.stays ? "stay" : "flight"} shows whether it is planned, held, booked, or confirmed.</div>
+      ${s.notes ? `<h3 class="it-sec">Notes</h3><p class="it-notes">${esc(s.notes)}</p>` : ""}
     `;
   }
 

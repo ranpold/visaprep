@@ -79,7 +79,7 @@ window.downloadPdf = async (el, name, button) => {
         image: { type: "jpeg", quality: 0.96 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], avoid: [".fl", ".stay", ".layover", "tr"] },
+        pagebreak: { mode: ["css", "legacy"], avoid: [".it-journey", ".it-seg", "tr"] },
       })
       .from(el)
       .save();

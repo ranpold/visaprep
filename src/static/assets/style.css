@@ -224,51 +224,82 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; backgr
 .hotel-cta .muted { display: block; font-size: .8rem; margin-top: 2px; }
 .f-group + .hotel-cta, #f-results > .hotel-cta { margin-top: 14px; }
 
-/* ---- Itinerary document (preview + PDF) ---- */
-.paper { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.paper .doc-title { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding-bottom: 14px; border-bottom: 3px solid #0f766e; }
-.paper .doc-title h2 { font-family: var(--display); font-size: 24px; margin: 2px 0 4px; }
-.paper .doc-trav { font-size: 13px; color: #3a4048; }
-.paper .doc-meta { text-align: right; font-size: 12px; display: grid; gap: 4px; }
-.paper .doc-meta span, .paper .summary span, .paper .stay-dates span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #7a828c; font-weight: 600; }
-.paper .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 16px 0 6px; background: #f3f7f6; border-radius: 10px; overflow: hidden; }
-.paper .summary > div { padding: 10px 12px; border-right: 1px solid #e0e8e6; }
-.paper .summary > div:last-child { border-right: 0; }
-.paper .summary strong { display: block; font-size: 14px; margin-top: 2px; }
-.paper .summary em { display: block; font-style: normal; font-size: 11px; color: #5d6570; }
-.paper .pill { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
-.paper .st-plan { background: #eef0f3; color: #4b5360; }
-.paper .st-held { background: #fff4dc; color: #8a5a00; }
-.paper .st-booked { background: #dff4ec; color: #0b6b4a; }
-.paper .fl { border: 1px solid #e3e0d8; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; break-inside: avoid; }
-.paper .fl-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12.5px; color: #3a4048; margin-bottom: 8px; }
-.paper .fl-main { display: grid; grid-template-columns: 1fr 1.2fr 1fr; align-items: center; gap: 8px; }
-.paper .fl-time { font-size: 22px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.paper .fl-time sup { font-size: 11px; color: #c2410c; margin-left: 2px; }
-.paper .fl-code { font-size: 15px; font-weight: 700; color: #0f766e; letter-spacing: .04em; }
-.paper .fl-city { font-size: 11px; color: #5d6570; }
-.paper .fl-r { text-align: right; }
-.paper .fl-mid { text-align: center; font-size: 11px; color: #5d6570; }
-.paper .fl-dur { font-weight: 600; color: #3a4048; min-height: 14px; }
-.paper .fl-line { position: relative; height: 16px; margin: 3px 0; }
-.paper .fl-line::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed #b9c4c2; }
-.paper .fl-line span { position: relative; background: #fff; padding: 0 6px; color: #0f766e; font-size: 13px; line-height: 16px; }
-.paper .fl-sub { min-height: 13px; }
-.paper .layover { text-align: center; font-size: 11.5px; color: #8a5a00; background: #fff8e8; border: 1px dashed #f0d59a; border-radius: 99px; padding: 4px 10px; margin: -2px auto 10px; width: fit-content; }
-.paper .stays { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-.paper .stay { border: 1px solid #e3e0d8; border-radius: 12px; padding: 12px 14px; break-inside: avoid; }
-.paper .stay-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
-.paper .stay-city { font-size: 12px; color: #5d6570; margin: 2px 0 8px; }
-.paper .stay-dates { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; font-size: 13px; font-weight: 600; }
-.paper table.plan td { border-bottom: 1px solid #eee; }
-.paper .plan-date { white-space: nowrap; font-weight: 600; width: 1%; }
-.paper .plan-city { color: #0f766e; font-weight: 600; width: 1%; white-space: nowrap; }
+/* ---- Itinerary document (preview + PDF) ----
+   Airline-document style: rules not boxes, navy accent, condensed type for times/codes.
+   Hex colours on purpose: html2canvas (PDF export) cannot parse oklch(). */
+.paper.itin {
+  --ink: #16202e; --ink-2: #4a5566; --ink-3: #7d8797; --rule: #d9dee6; --rule-2: #eef1f5;
+  --navy: #1f3a68; --navy-soft: #eef2f8; --ok: #1d5e45; --ok-soft: #e7f2ec; --held: #7a5410; --held-soft: #fbf3e2;
+  background: #fdfdfe; color: var(--ink); font: 13px/1.45 "Public Sans", system-ui, sans-serif;
+  padding: 40px 44px; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.itin h2, .itin h3, .itin .it-time, .itin .it-code, .itin .it-flno, .itin .it-kicker, .itin dt, .itin th { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: 0; }
+.itin p, .itin dl, .itin dd { margin: 0; }
+
+.itin .it-head { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; padding-bottom: 16px; border-bottom: 2px solid var(--navy); }
+.itin .it-kicker { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: var(--navy); }
+.itin h2 { font-size: 32px; font-weight: 600; line-height: 1.05; margin: 4px 0 6px; color: var(--ink); }
+.itin .it-dates { font-size: 14px; color: var(--ink-2); font-weight: 500; }
+.itin .it-people { display: grid; gap: 8px; text-align: right; min-width: 150px; }
+.itin dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+.itin dd { font-size: 13px; font-weight: 500; }
+
+.itin .it-summary { display: grid; grid-template-columns: 2fr 1.4fr 1fr; border-bottom: 1px solid var(--rule); }
+.itin .it-summary > div { padding: 10px 12px 10px 0; }
+.itin .it-summary > div + div { padding-left: 14px; border-left: 1px solid var(--rule); }
+.itin .it-summary dd { font-size: 14px; font-weight: 600; }
+
+.itin .it-sec { font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); margin: 26px 0 10px; }
+
+.itin .it-journey { margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
+.itin .it-jhead { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 12px; padding: 7px 12px; background: var(--navy); color: #f5f7fb; border-radius: 3px; }
+.itin .it-jhead h3 { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; margin: 0; }
+.itin .it-route { font-weight: 600; font-size: 13px; white-space: nowrap; }
+.itin .it-facts { font-size: 12px; color: #c9d3e6; text-align: right; min-width: 0; }
+
+.itin .it-seg { display: grid; grid-template-columns: 1fr 190px; gap: 16px; padding: 12px 12px 12px 12px; border-bottom: 1px solid var(--rule-2); }
+.itin .it-times { display: grid; grid-template-rows: auto 14px auto; }
+.itin .it-pt { display: grid; grid-template-columns: 62px 44px 1fr; align-items: baseline; gap: 6px; }
+.itin .it-time { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.itin .it-time sup { font-size: 11px; font-weight: 700; color: #b4461b; margin-left: 1px; }
+.itin .it-code { font-size: 16px; font-weight: 700; color: var(--navy); letter-spacing: .04em; }
+.itin .it-city { font-size: 12.5px; color: var(--ink-2); }
+.itin .it-track { margin-left: 22px; border-left: 2px dotted var(--rule); }
+.itin .it-carrier { text-align: right; display: grid; align-content: start; gap: 1px; }
+.itin .it-flno { font-size: 17px; font-weight: 700; }
+.itin .it-air { font-size: 12.5px; font-weight: 500; }
+.itin .it-det { font-size: 11.5px; color: var(--ink-3); }
+.itin .it-status { justify-self: end; margin-top: 6px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+.itin td .it-status { margin-top: 0; display: inline-block; }
+.itin .is-plan { color: var(--ink-2); background: var(--rule-2); border-color: var(--rule); }
+.itin .is-held { color: var(--held); background: var(--held-soft); }
+.itin .is-booked { color: var(--ok); background: var(--ok-soft); }
+.itin .it-lay { display: flex; align-items: center; gap: 10px; padding: 6px 12px; font-size: 11.5px; font-weight: 600; color: var(--held); background: var(--held-soft); }
+.itin .it-lay::before, .itin .it-lay::after { content: ""; flex: 1; border-top: 1px dashed #e2c98f; }
+
+.itin .it-table { width: 100%; border-collapse: collapse; }
+.itin .it-table th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); text-align: left; padding: 0 10px 6px 0; border-bottom: 1px solid var(--rule); }
+.itin .it-table td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--rule-2); vertical-align: top; font-size: 13px; }
+.itin .it-table tr { break-inside: avoid; page-break-inside: avoid; }
+.itin .it-table .num { text-align: right; padding-right: 14px; }
+.itin .it-sub { display: block; font-size: 12px; color: var(--ink-2); margin-top: 1px; }
+.itin .it-pdate { white-space: nowrap; font-weight: 600; width: 1%; }
+.itin .it-pcity { white-space: nowrap; font-weight: 600; color: var(--navy); width: 1%; }
+.itin .it-notes { white-space: pre-wrap; color: var(--ink-2); }
+.itin .it-empty { color: var(--ink-3); font-style: italic; margin: 4px 0; }
+
 @media (max-width: 560px) {
-  .paper .summary { grid-template-columns: 1fr 1fr; }
-  .paper .summary > div:nth-child(2) { border-right: 0; }
-  .paper .doc-title { flex-direction: column; }
-  .paper .doc-meta { text-align: left; }
-  .paper .fl-time { font-size: 18px; }
+  .paper.itin { padding: 22px 16px; }
+  .itin .it-head { grid-template-columns: 1fr; }
+  .itin .it-people { text-align: left; }
+  .itin .it-summary { grid-template-columns: 1fr 1fr; }
+  .itin .it-summary > div:first-child { grid-column: 1 / -1; }
+  .itin .it-summary > div:nth-child(2) { border-left: 0; padding-left: 0; }
+  .itin .it-jhead { grid-template-columns: 1fr; gap: 2px; }
+  .itin .it-facts { text-align: left; }
+  .itin .it-seg { grid-template-columns: 1fr; gap: 8px; }
+  .itin .it-carrier { text-align: left; }
+  .itin .it-status { justify-self: start; }
 }
 
 /* "Include in itinerary" chooser */
