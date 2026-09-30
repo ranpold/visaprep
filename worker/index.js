@@ -1,9 +1,11 @@
 // VisaPrep Worker: serves the static site (ASSETS) and a small flight-lookup API.
 //   GET /api/places?term=mumb             -> airport/city suggestions
 //   GET /api/flights?from=BOM&to=PAR&date=2026-11-10
-// Flight data comes from the Travelpayouts (Aviasales) Data API, a cache of recent fare
-// searches. It gives real airlines, flight numbers and departure times, but it is not a
-// complete timetable, so an empty day falls back to the nearest dates in the month.
+// Flights come from two sources:
+//   - AeroDataBox airport timetable (ADB_KEY): every scheduled direct departure that day.
+//     Each airport/day is fetched once and kept in KV, so later searches cost no API units.
+//   - Travelpayouts / Aviasales fare cache (TP_TOKEN): adds connecting options plus the
+//     affiliate "check fares" links. It's sparse, so it's supplementary.
 import ref from "./ref-data.json";
 
 const TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
@@ -69,30 +71,162 @@ async function flights(url, env) {
   const date = url.searchParams.get("date") || "";
   if (!IATA.test(from) || !IATA.test(to) || !DATE.test(date)) return json({ error: "Use 3-letter airport/city codes and a YYYY-MM-DD date." }, 400);
   if (from === to) return json({ error: "Origin and destination are the same." }, 400);
-  if (!env.TP_TOKEN) return json({ error: "Flight lookup isn't configured yet." }, 503);
+  if (!env.ADB_KEY && !env.TP_TOKEN) return json({ error: "Flight lookup isn't configured yet." }, 503);
 
-  let tickets = await search(env, from, to, date);
-  let exact = true;
-  if (!tickets.length) {
-    // Nothing cached for that exact day: offer the closest dates in the same month.
-    exact = false;
-    const target = Date.parse(date);
-    tickets = (await search(env, from, to, date.slice(0, 7)))
-      .sort((a, b) => Math.abs(Date.parse(a.departure_at) - target) - Math.abs(Date.parse(b.departure_at) - target));
-  }
+  const toSet = new Set(airportsOf(to));
+  const [timetable, fares] = await Promise.all([
+    env.ADB_KEY ? directFlights(env, from, toSet, date).catch(logEmpty("timetable")) : [],
+    env.TP_TOKEN ? search(env, from, to, date).catch(logEmpty("fares")) : [],
+  ]);
 
-  const seen = new Set();
   const results = [];
-  for (const t of tickets) {
-    const f = normalise(t, env.TP_MARKER);
-    const key = `${f.flightNo}|${f.depDate}|${f.depTime}`;
-    if (seen.has(key)) continue;
+  const seen = new Set();
+  const add = (f) => {
+    const key = `${f.flightNo.replace(/\s/g, "")}|${f.depDate}`;
+    if (seen.has(key)) return;
     seen.add(key);
     results.push(f);
+  };
+  timetable.forEach((f) => add(withLink(f, env.TP_MARKER)));
+  fares.map((t) => normalise(t, env.TP_MARKER)).forEach(add);
+
+  let exact = true;
+  if (!results.length && env.TP_TOKEN) {
+    // Nothing that day: offer the closest dates in the same month from the fare cache.
+    exact = false;
+    const target = Date.parse(date);
+    (await search(env, from, to, date.slice(0, 7)).catch(logEmpty("fares-month")))
+      .sort((a, b) => Math.abs(Date.parse(a.departure_at) - target) - Math.abs(Date.parse(b.departure_at) - target))
+      .map((t) => normalise(t, env.TP_MARKER))
+      .forEach(add);
   }
-  // Direct flights first, then by departure time.
+
+  // Direct first, then by departure time.
   results.sort((a, b) => a.stops - b.stops || (a.depDate + a.depTime).localeCompare(b.depDate + b.depTime));
-  return json({ exact, date, results: results.slice(0, 12) });
+  return json({ exact, date, results: results.slice(0, 20) });
+}
+
+const logEmpty = (what) => (err) => {
+  console.error(what, err);
+  return [];
+};
+
+// --- AeroDataBox timetable ---
+
+// ADB_KEY can be a RapidAPI key or a key from AeroDataBox's own portal (a UUID).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function adbRequest(env, path) {
+  return UUID.test(env.ADB_KEY)
+    ? { url: `https://api.aerodatabox.com${path}`, headers: { "x-api-key": env.ADB_KEY } }
+    : { url: `https://aerodatabox.p.rapidapi.com${path}`, headers: { "X-RapidAPI-Key": env.ADB_KEY, "X-RapidAPI-Host": "aerodatabox.p.rapidapi.com" } };
+}
+
+// City codes (LON) expand to their airports; airport codes stay as they are.
+function airportsOf(code) {
+  if (ref.airports[code]) return [code];
+  return cityAirports()[code] || [code];
+}
+let _cityAirports;
+function cityAirports() {
+  if (!_cityAirports) {
+    _cityAirports = {};
+    for (const [code, a] of Object.entries(ref.airports)) (_cityAirports[a[1]] ||= []).push(code);
+  }
+  return _cityAirports;
+}
+
+// For a multi-airport origin city, only query its two busiest airports (ranked by the
+// autocomplete service) to save API units.
+async function originAirports(code) {
+  const all = airportsOf(code);
+  if (all.length <= 2) return all;
+  try {
+    const q = new URL(PLACES);
+    q.searchParams.set("term", code);
+    q.searchParams.set("locale", "en");
+    q.searchParams.append("types[]", "airport");
+    const ranked = (await (await fetch(q)).json()).map((p) => p.code).filter((c) => all.includes(c));
+    if (ranked.length) return ranked.slice(0, 2);
+  } catch {}
+  return all.slice(0, 2);
+}
+
+async function directFlights(env, from, toSet, date) {
+  const origins = await originAirports(from);
+  const lists = await Promise.all(origins.map((a) => departures(env, a, date)));
+  return lists.flat().filter((f) => toSet.has(f.to));
+}
+
+// All scheduled departures from one airport on one local day, cached in KV.
+async function departures(env, airport, date) {
+  const key = `adb:v1:${airport}:${date}`;
+  if (env.CACHE) {
+    const hit = await env.CACHE.get(key, "json");
+    if (hit) return hit;
+  }
+  // The free plan allows a 12-hour window per call, so a day is two calls.
+  const halves = await Promise.all([
+    fids(env, airport, `${date}T00:00`, `${date}T11:59`),
+    fids(env, airport, `${date}T12:00`, `${date}T23:59`),
+  ]);
+  const list = halves.flat().map((e) => timetableEntry(e, airport)).filter(Boolean);
+  if (env.CACHE) {
+    // Far-off schedules change slowly; refresh near-term days more often.
+    const daysOut = (Date.parse(date) - Date.now()) / 86400000;
+    await env.CACHE.put(key, JSON.stringify(list), { expirationTtl: daysOut > 14 ? 7 * 86400 : 86400 });
+  }
+  return list;
+}
+
+async function fids(env, airport, fromLocal, toLocal) {
+  const req = adbRequest(env, `/flights/airports/iata/${airport}/${fromLocal}/${toLocal}`);
+  const q = new URL(req.url);
+  for (const [k, v] of Object.entries({ direction: "Departure", withLeg: "true", withCancelled: "false", withCodeshared: "false", withCargo: "false", withPrivate: "false", withLocation: "false" }))
+    q.searchParams.set(k, v);
+  const r = await fetch(q, { headers: req.headers });
+  if (r.status === 204) return [];
+  if (!r.ok) throw new Error(`aerodatabox ${airport} ${r.status} ${await r.text().catch(() => "")}`.slice(0, 300));
+  const body = await r.json();
+  return body.departures || [];
+}
+
+// "2026-11-10 01:35+05:30" -> { date, time }
+const splitLocal = (s) => ({ date: s.slice(0, 10), time: s.slice(11, 16) });
+const utcMs = (s) => Date.parse(s.replace(" ", "T"));
+
+function timetableEntry(e, originCode) {
+  const dep = e.departure, arr = e.arrival;
+  const toCode = arr?.airport?.iata;
+  if (!dep?.scheduledTime?.local || !toCode || e.isCargo) return null;
+  const d = splitLocal(dep.scheduledTime.local);
+  const a = arr.scheduledTime?.local ? splitLocal(arr.scheduledTime.local) : { date: "", time: "" };
+  const dur = dep.scheduledTime.utc && arr.scheduledTime?.utc ? Math.round((utcMs(arr.scheduledTime.utc) - utcMs(dep.scheduledTime.utc)) / 60000) : 0;
+  const origin = place(dep.airport?.iata || originCode);
+  const dest = place(toCode);
+  return {
+    airline: e.airline?.iata || "",
+    airlineName: e.airline?.name || ref.airlines[e.airline?.iata] || "",
+    flightNo: (e.number || "").replace(/\s+/, " "),
+    from: origin.code,
+    fromLabel: `${origin.city} (${origin.code})`,
+    to: dest.code,
+    toLabel: `${dest.city} (${dest.code})`,
+    depDate: d.date,
+    depTime: d.time,
+    arrDate: a.date,
+    arrTime: a.time,
+    durationMin: dur > 0 ? dur : 0,
+    stops: 0,
+    aircraft: e.aircraft?.model || "",
+    source: "timetable",
+  };
+}
+
+// Aviasales search link for a timetable flight: /search/{FROM}{DDMM}{TO}1
+function withLink(f, marker) {
+  const l = new URL(`https://www.aviasales.com/search/${f.from}${f.depDate.slice(8, 10)}${f.depDate.slice(5, 7)}${f.to}1`);
+  if (marker) l.searchParams.set("marker", marker);
+  return { ...f, link: l.toString() };
 }
 
 async function search(env, from, to, departureAt) {
@@ -163,6 +297,7 @@ function normalise(t, marker) {
     stops: t.transfers || 0,
     price: t.price,
     link,
+    source: "fares",
   };
 }
 

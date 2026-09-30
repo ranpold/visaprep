@@ -15,5 +15,7 @@
     // Travelpayouts partner ID (earns commission on Aviasales click-throughs). TP_TOKEN is a secret.
     "TP_MARKER": ""
   },
+  // Caches AeroDataBox airport/day timetables so each costs API units only once.
+  "kv_namespaces": [{ "binding": "CACHE", "id": "eb0306f004964f95878eafda41442b92" }],
   "observability": { "enabled": true }
 }

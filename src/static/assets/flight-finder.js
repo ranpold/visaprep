@@ -110,7 +110,7 @@
           <button type="button" class="btn btn-ghost btn-sm">${i === 0 ? "Selected" : "Use this"}</button>
           ${f.link ? `<a href="${esc(f.link)}" target="_blank" rel="sponsored noopener">Check fares ↗</a>` : ""}
         </div>
-        <div class="f-sub">${esc(niceDate(f.depDate))} · ${esc(f.fromLabel)} → ${esc(f.toLabel)} · ${esc(fmtDur(f.durationMin))} · ${f.stops ? `${f.stops} stop${f.stops > 1 ? "s" : ""}` : "Direct"}${f.price ? ` · recent fare from $${esc(f.price)}` : ""}</div>`;
+        <div class="f-sub">${esc(niceDate(f.depDate))} · ${esc(f.fromLabel)} → ${esc(f.toLabel)} · ${esc(fmtDur(f.durationMin))} · ${f.stops ? `${f.stops} stop${f.stops > 1 ? "s" : ""}` : "Direct"}${f.aircraft ? ` · ${esc(f.aircraft)}` : ""}${f.price ? ` · recent fare from $${esc(f.price)}` : ""} · <em>${f.source === "timetable" ? "airline timetable" : "recent fare search"}</em></div>`;
       li.querySelector("button").addEventListener("click", () => {
         ul.querySelectorAll(".f-opt").forEach((o) => {
           o.classList.remove("picked");
@@ -145,7 +145,7 @@
       if (r) results.append(renderGroup("ret", "Return", r));
       const found = o.results.length + (r ? r.results.length : 0);
       status.textContent = found
-        ? "We've added the best match (direct flights first) to your itinerary. Choose another option any time. Schedules come from recent fare searches, so check the airline's site before you book."
+        ? "We've added the best match (direct flights first) to your itinerary. Choose another option any time. Airlines sometimes change schedules, so check the airline's site before you book."
         : "";
     } catch (e) {
       fail(e.message);
