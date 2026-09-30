@@ -25,8 +25,11 @@ const adsEnabled = /^ca-pub-\d+$/.test(config.adsenseClient);
 const adScript = adsEnabled
   ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${config.adsenseClient}" crossorigin="anonymous"></script>`
   : "";
+// With a publisher ID but no slot ID, emit nothing: AdSense Auto ads places ads itself.
 const adUnit = (slot) =>
-  adsEnabled
+  adsEnabled && !slot
+    ? ""
+    : adsEnabled
     ? `<div class="ad"><ins class="adsbygoogle" style="display:block" data-ad-client="${config.adsenseClient}" data-ad-slot="${slot}" data-ad-format="auto" data-full-width-responsive="true"></ins><script>(adsbygoogle=window.adsbygoogle||[]).push({});</script></div>`
     : `<div class="ad ad-placeholder" aria-hidden="true">Ad space</div>`;
 
