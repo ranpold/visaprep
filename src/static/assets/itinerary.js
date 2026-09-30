@@ -26,6 +26,7 @@
       update();
     });
     document.getElementById(list).appendChild(node);
+    return node;
   }
 
   function read() {
@@ -143,6 +144,9 @@
     load({ flights: [{}, {}], stays: [{}], days: [] });
     update();
   });
+
+  // Used by flight-finder.js to add or replace flight rows.
+  window.itinerary = { addItem, update };
 
   load(window.store.get(KEY, null) || { flights: [{}, {}], stays: [{}], days: [] });
   update();

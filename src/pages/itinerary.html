@@ -1,7 +1,7 @@
-<!--meta {"title": "Free Travel Itinerary Builder for Visa Applications (PDF)", "description": "Create a clean, printable travel itinerary PDF for your visa application: flights, hotels, and a day-by-day plan. Free, no sign-up, honest, and consulate-friendly.", "scripts": ["/assets/itinerary.js"]} -->
+<!--meta {"title": "Free Travel Itinerary Builder for Visa Applications (PDF)", "description": "Create a clean, printable travel itinerary PDF for your visa application: flights, hotels, and a day-by-day plan. Free, no sign-up, honest, and consulate-friendly.", "scripts": ["/assets/itinerary.js", "/assets/flight-finder.js"]} -->
 <section class="wrap no-print" style="padding-top:32px">
   <h1>Travel Itinerary Builder</h1>
-  <p class="muted narrow">Enter your planned flights, stays, and daily plans. Your itinerary PDF is marked as a <strong>plan</strong>, not a ticket, and shows the real status of each item. That's what most consulates ask for. Drafts save automatically in your browser.</p>
+  <p class="muted narrow">Tell us your route and dates and we'll find real scheduled flights, or enter them yourself. Then add your stays and daily plans. Your itinerary PDF is marked as a <strong>plan</strong>, not a ticket, and shows the real status of each item. That's what most consulates ask for. Drafts save automatically in your browser.</p>
   <div class="notice narrow"><strong>Don't buy non-refundable tickets before your visa is approved.</strong> If your consulate insists on a verifiable reservation, use a <a href="{{base}}/guides/free-24-hour-flight-hold">free 24-hour hold</a> or a refundable fare, then set that flight's status to "Held" or "Booked".</div>
 </section>
 
@@ -23,6 +23,21 @@
 
     <fieldset>
       <legend>Flights</legend>
+      <div class="finder" id="finder">
+        <p class="finder-h">Find real flights automatically</p>
+        <div class="row">
+          <div><label for="f-from">From</label><input id="f-from" placeholder="City or airport, e.g. Mumbai" list="f-from-list" data-place><datalist id="f-from-list"></datalist></div>
+          <div><label for="f-to">To</label><input id="f-to" placeholder="e.g. Paris" list="f-to-list" data-place><datalist id="f-to-list"></datalist></div>
+        </div>
+        <div class="row">
+          <div><label for="f-out">Departure date</label><input type="date" id="f-out"></div>
+          <div><label for="f-ret">Return date <span class="muted">(optional)</span></label><input type="date" id="f-ret"></div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="f-go">Find flights</button>
+        <p class="finder-status" id="f-status" role="status"></p>
+        <div id="f-results"></div>
+      </div>
+      <p class="muted" style="font-size:.85rem;margin:14px 0 8px">Or add and edit flights yourself:</p>
       <div id="flights"></div>
       <button type="button" class="btn btn-ghost btn-sm" data-add="flights">+ Add flight</button>
     </fieldset>

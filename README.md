@@ -2,12 +2,21 @@
 
 A free, ad-supported toolkit for visa applicants: an honest alternative to paid "dummy ticket" sites.
 
-- **Itinerary Builder** (`/itinerary`): flights, stays, and a day-by-day plan, exported as a PDF clearly labelled as a *plan*
+- **Itinerary Builder** (`/itinerary`): flights, stays, and a day-by-day plan, exported as a PDF clearly labelled as a *plan*. **Flight finder** looks up real flights for a route and date and auto-fills the best match (direct first)
 - **Visa Checklist** (`/checklist`): tick-box document lists for Schengen, UK, US, Canada, Australia, Japan, and UAE, linked to official sources
 - **Cover Letter Generator** (`/cover-letter`): form-driven letter, editable, with PDF/TXT export
 - **Guides**: SEO articles on itineraries, free 24h flight holds, hotel bookings, and onward tickets
 
-Everything runs client-side. There's no backend and no database; drafts live in `localStorage`.
+Tools run client-side and drafts live in `localStorage`. The only server code is `worker/index.js`, which serves `/api/places` (airport autocomplete) and `/api/flights` (Travelpayouts Data API, edge-cached for 6h) and keeps the API token server-side.
+
+### Flight data (Travelpayouts)
+
+1. Sign up free at travelpayouts.com and join the Aviasales program.
+2. `npx wrangler secret put TP_TOKEN` (your API token).
+3. Set `TP_MARKER` in `wrangler.jsonc` to your partner ID. "Check fares" links then earn commission.
+4. Airport and airline reference data is in `worker/ref-data.json`; refresh it with `npm run refdata`.
+
+For local dev, put `TP_TOKEN=...` in `.dev.vars` (gitignored) and run `npm run dev`.
 
 ## Develop
 

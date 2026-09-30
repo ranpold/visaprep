@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "dev": "node build.mjs && npx --yes serve public",
-    "deploy:cf": "node build.mjs && npx --yes wrangler deploy"
+    "dev": "node build.mjs && npx --yes wrangler dev",
+    "deploy:cf": "node build.mjs && npx --yes wrangler deploy",
+    "refdata": "node scripts/gen-ref-data.mjs"
   }
 }
