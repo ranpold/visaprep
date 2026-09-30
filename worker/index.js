@@ -12,6 +12,7 @@ const TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 const PLACES = "https://autocomplete.travelpayouts.com/places2";
 const IATA = /^[A-Z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const CACHE_VERSION = "2";
 
 export default {
   async fetch(request, env, ctx) {
@@ -33,12 +34,16 @@ export default {
 // Edge-cache successful GET responses so repeat searches don't hit the upstream API.
 async function cached(request, ctx, ttl, produce) {
   const cache = caches.default;
-  const key = new Request(request.url, { method: "GET" });
+  // Bump CACHE_VERSION when result logic changes so stale edge-cached responses are skipped.
+  const u = new URL(request.url);
+  u.searchParams.set("cv", CACHE_VERSION);
+  const key = new Request(u.toString(), { method: "GET" });
   const hit = await cache.match(key);
   if (hit) return hit;
   const res = await produce();
   if (res.status === 200) {
-    res.headers.set("Cache-Control", `public, max-age=${ttl}`);
+    // Edge keeps it for `ttl`; browsers only 5 minutes, so fixes reach users quickly.
+    res.headers.set("Cache-Control", `public, max-age=300, s-maxage=${ttl}`);
     ctx.waitUntil(cache.put(key, res.clone()));
   }
   return res;
@@ -92,10 +97,12 @@ async function flights(url, env) {
 
   let exact = true;
   if (!results.length && env.TP_TOKEN) {
-    // Nothing that day: offer the closest dates in the same month from the fare cache.
+    // Nothing that day: offer the closest dates (within a week) in the same month from the fare cache.
     exact = false;
     const target = Date.parse(date);
+    const WEEK = 7 * 86400000;
     (await search(env, from, to, date.slice(0, 7)).catch(logEmpty("fares-month")))
+      .filter((t) => Math.abs(Date.parse(t.departure_at.slice(0, 10)) - target) <= WEEK)
       .sort((a, b) => Math.abs(Date.parse(a.departure_at) - target) - Math.abs(Date.parse(b.departure_at) - target))
       .map((t) => normalise(t, env.TP_MARKER))
       .forEach(add);
@@ -145,7 +152,11 @@ async function originAirports(code) {
     q.searchParams.set("term", code);
     q.searchParams.set("locale", "en");
     q.searchParams.append("types[]", "airport");
-    const ranked = (await (await fetch(q)).json()).map((p) => p.code).filter((c) => all.includes(c));
+    // The service doesn't return airports in size order; `weight` reflects traffic (LHR > LGW > STN).
+    const ranked = (await (await fetch(q)).json())
+      .filter((p) => all.includes(p.code))
+      .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+      .map((p) => p.code);
     if (ranked.length) return ranked.slice(0, 2);
   } catch {}
   return all.slice(0, 2);

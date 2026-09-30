@@ -49,7 +49,8 @@
   const niceDate = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
   async function lookup(from, to, date) {
-    const r = await fetch(`${base}/api/flights?from=${from}&to=${to}&date=${date}`);
+    // `v` changes when the API's result format or logic changes, bypassing stale browser caches.
+    const r = await fetch(`${base}/api/flights?from=${from}&to=${to}&date=${date}&v=2`);
     const body = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(body.error || "Flight lookup failed.");
     return body;
@@ -141,6 +142,11 @@
     $("f-go").disabled = true;
     try {
       const [o, r] = await Promise.all([lookup(from, to, out), ret ? lookup(to, from, ret) : null]);
+      // Nearest-date fallbacks must not put the return before the outbound (or vice versa).
+      if (r) {
+        r.results = r.results.filter((f) => f.depDate > out);
+        o.results = o.results.filter((f) => f.depDate < ret);
+      }
       results.append(renderGroup("out", "Outbound", o));
       if (r) results.append(renderGroup("ret", "Return", r));
       const found = o.results.length + (r ? r.results.length : 0);
