@@ -5,6 +5,7 @@
   const preview = document.getElementById("preview");
   const LISTS = ["flights", "stays", "days"];
   const esc = window.escapeHtml;
+  const BASE = document.querySelector('link[rel="icon"]').getAttribute("href").replace(/\/assets\/favicon\.svg$/, "");
 
   const fmtDate = (d) => {
     if (!d) return "";
@@ -103,9 +104,33 @@
     `;
   }
 
+  // Booking.com search (through our /go/hotels redirect, which adds partner tracking).
+  function hotelLink(city, checkin, checkout, adults) {
+    const q = new URLSearchParams({ city: city || "", adults: String(adults || 1) });
+    if (checkin && checkout && checkout > checkin) {
+      q.set("checkin", checkin);
+      q.set("checkout", checkout);
+    }
+    return `${BASE}/go/hotels?${q}`;
+  }
+
+  function travellerCount(s) {
+    return Math.max(1, s.travellers.split("\n").filter((t) => t.trim()).length);
+  }
+
+  function updateHotelLinks(s) {
+    [...document.getElementById("stays").children].forEach((row) => {
+      const v = (k) => row.querySelector(`[data-k="${k}"]`).value;
+      const link = row.querySelector(".hotel-link");
+      link.href = hotelLink(v("city"), v("in"), v("out"), travellerCount(s));
+      link.textContent = v("city") ? `Find hotels in ${v("city")} on Booking.com ↗` : "Find hotels on Booking.com ↗";
+    });
+  }
+
   function update() {
     const s = read();
     render(s);
+    updateHotelLinks(s);
     window.store.set(KEY, s);
   }
 
@@ -149,7 +174,7 @@
   });
 
   // Used by flight-finder.js to add or replace flight rows.
-  window.itinerary = { addItem, update };
+  window.itinerary = { addItem, update, hotelLink, travellerCount: () => travellerCount(read()) };
 
   load(window.store.get(KEY, null) || { flights: [{}, {}], stays: [{}], days: [] });
   update();

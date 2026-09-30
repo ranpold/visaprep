@@ -77,7 +77,7 @@ writeFileSync(
     urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${today}</lastmod><priority>${u.priority}</priority></url>`).join("\n") +
     `\n</urlset>\n`
 );
-writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${config.siteUrl}/sitemap.xml\n`);
+writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /go/\nDisallow: /api/\nSitemap: ${config.siteUrl}/sitemap.xml\n`);
 if (adsEnabled) {
   const pubId = config.adsenseClient.replace("ca-", "");
   writeFileSync(join(OUT, "ads.txt"), `google.com, ${pubId}, DIRECT, f08c47fec0942fa0\n`);

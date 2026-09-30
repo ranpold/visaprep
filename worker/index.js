@@ -17,6 +17,7 @@ const CACHE_VERSION = "6";
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname === "/go/hotels") return hotelRedirect(url, env);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
     if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
 
@@ -431,4 +432,54 @@ function json(data, status = 200) {
     status,
     headers: { "Content-Type": "application/json; charset=utf-8", "X-Content-Type-Options": "nosniff" },
   });
+}
+
+// --- Hotel search hand-off (Booking.com via Travelpayouts partner links) ---
+//   GET /go/hotels?city=Paris&checkin=2026-11-10&checkout=2026-11-15&adults=2
+// Builds a Booking.com search and, when TP_TRS (project ID) is configured, converts it into a
+// tracked partner link via the Travelpayouts Links API (cached in KV). Always redirects, so a
+// failed conversion still sends the visitor to a normal Booking.com search.
+async function hotelRedirect(url, env) {
+  const city = (url.searchParams.get("city") || "").trim().slice(0, 80);
+  const checkin = url.searchParams.get("checkin") || "";
+  const checkout = url.searchParams.get("checkout") || "";
+  const adults = Math.min(Math.max(parseInt(url.searchParams.get("adults") || "1", 10) || 1, 1), 9);
+
+  const target = new URL("https://www.booking.com/searchresults.html");
+  if (city) target.searchParams.set("ss", city);
+  if (DATE.test(checkin) && DATE.test(checkout) && checkout > checkin) {
+    target.searchParams.set("checkin", checkin);
+    target.searchParams.set("checkout", checkout);
+  }
+  target.searchParams.set("group_adults", String(adults));
+  target.searchParams.set("no_rooms", "1");
+
+  let dest = target.toString();
+  if (env.TP_TOKEN && env.TP_TRS && env.TP_MARKER) {
+    try {
+      dest = await partnerLink(env, dest);
+    } catch (err) {
+      console.error("partner link", err);
+    }
+  }
+  return new Response(null, { status: 302, headers: { Location: dest, "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+}
+
+async function partnerLink(env, target) {
+  const key = `plink:v1:${target}`;
+  if (env.CACHE) {
+    const hit = await env.CACHE.get(key);
+    if (hit) return hit;
+  }
+  const r = await fetch("https://api.travelpayouts.com/links/v1/create", {
+    method: "POST",
+    headers: { "X-Access-Token": env.TP_TOKEN, "Content-Type": "application/json" },
+    body: JSON.stringify({ trs: Number(env.TP_TRS), marker: Number(env.TP_MARKER), shorten: false, links: [{ url: target, sub_id: "hotels" }] }),
+  });
+  if (!r.ok) throw new Error(`links api ${r.status}`);
+  const body = await r.json();
+  const link = body?.result?.links?.[0]?.partner_url;
+  if (!link) throw new Error(`links api: ${JSON.stringify(body).slice(0, 200)}`);
+  if (env.CACHE) await env.CACHE.put(key, link, { expirationTtl: 30 * 86400 });
+  return link;
 }

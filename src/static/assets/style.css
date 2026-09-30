@@ -217,3 +217,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; backgr
 .swap.spun { transform: translateX(-50%) rotate(180deg); }
 .swap:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 @media (max-width: 400px) { .route-row { grid-template-columns: 1fr 1fr; } }
+
+/* Hotel links */
+.hotel-cta { margin: 10px 0 0; font-size: .88rem; }
+.hotel-cta .muted { display: block; font-size: .8rem; margin-top: 2px; }
+.f-group + .hotel-cta, #f-results > .hotel-cta { margin-top: 14px; }

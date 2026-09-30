@@ -246,6 +246,7 @@
       }
       results.append(renderGroup("out", "Outbound", o));
       if (r) results.append(renderGroup("ret", "Return", r));
+      results.append(hotelCta(o, r));
       const found = o.results.length + (r ? r.results.length : 0);
       status.textContent = found
         ? "We've added the best match (direct flights first) to your itinerary. Choose another option any time. Airlines sometimes change schedules, so check the airline's site before you book."
@@ -256,6 +257,26 @@
       $("f-go").disabled = false;
     }
   });
+
+  // "Find hotels" for the destination, dated from the chosen outbound arrival to the return flight.
+  function hotelCta(o, r) {
+    const first = o.results[0];
+    const wrap = document.createElement("p");
+    wrap.className = "hotel-cta";
+    if (!first) return wrap;
+    const last = first.segments ? first.segments[first.segments.length - 1] : first;
+    const city = (last.toLabel || "").replace(/\s*\([A-Z]{3}\)$/, "");
+    const checkin = last.arrDate || last.depDate;
+    const checkout = r && r.results[0] ? r.results[0].depDate : "";
+    const a = document.createElement("a");
+    a.className = "btn btn-ghost btn-sm";
+    a.target = "_blank";
+    a.rel = "sponsored nofollow noopener";
+    a.href = it.hotelLink(city, checkin, checkout, it.travellerCount());
+    a.textContent = `Find hotels in ${city} on Booking.com ↗`;
+    wrap.append(a);
+    return wrap;
+  }
 
   function fail(msg) {
     status.className = "finder-status err";
