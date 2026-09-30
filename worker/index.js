@@ -12,7 +12,7 @@ const TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 const PLACES = "https://autocomplete.travelpayouts.com/places2";
 const IATA = /^[A-Z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CACHE_VERSION = "5";
+const CACHE_VERSION = "6";
 
 export default {
   async fetch(request, env, ctx) {
