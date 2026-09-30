@@ -39,6 +39,7 @@
       travellers: form.travellers.value,
       contact: form.contact.value,
       notes: form.notes.value,
+      inc: { flights: form.incFlights.checked, stays: form.incStays.checked, days: form.incDays.checked },
     };
     for (const list of LISTS) {
       state[list] = [...document.getElementById(list).children].map((item) => {
@@ -53,6 +54,10 @@
 
   function load(state) {
     for (const k of ["tripTitle", "purpose", "travellers", "contact", "notes"]) form[k].value = state[k] || (k === "purpose" ? "Tourism" : "");
+    const inc = state.inc || {};
+    form.incFlights.checked = inc.flights !== false;
+    form.incStays.checked = inc.stays !== false;
+    form.incDays.checked = inc.days !== false;
     for (const list of LISTS) {
       document.getElementById(list).innerHTML = "";
       (state[list] || []).forEach((d) => addItem(list, d));
@@ -109,9 +114,10 @@
 
   function render(s) {
     const travellers = s.travellers.split("\n").map((t) => t.trim()).filter(Boolean);
-    const flights = s.flights.filter((f) => f.from || f.to || f.date).sort((a, b) => ((a.date || "") + (a.dep || "")).localeCompare((b.date || "") + (b.dep || "")));
-    const stays = s.stays.filter((h) => h.name || h.city).sort((a, b) => (a.in || "").localeCompare(b.in || ""));
-    const days = s.days.filter((d) => d.date || d.plan).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const inc = s.inc || { flights: true, stays: true, days: true };
+    const flights = (inc.flights ? s.flights : []).filter((f) => f.from || f.to || f.date).sort((a, b) => ((a.date || "") + (a.dep || "")).localeCompare((b.date || "") + (b.dep || "")));
+    const stays = (inc.stays ? s.stays : []).filter((h) => h.name || h.city).sort((a, b) => (a.in || "").localeCompare(b.in || ""));
+    const days = (inc.days ? s.days : []).filter((d) => d.date || d.plan).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const allDates = [...flights.flatMap((f) => [f.date, f.arrDate]), ...stays.flatMap((h) => [h.in, h.out]), ...days.map((d) => d.date)].filter(Boolean).sort();
     const start = allDates[0], end = allDates[allDates.length - 1];
     const tripDays = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1 : 0;
@@ -147,10 +153,10 @@
         <div><span>Travellers</span><strong>${travellers.length || "—"}</strong></div>
       </div>
 
-      <div class="doc-section">Flights</div>
-      ${flights.length ? flights.map((f, i) => (i ? layover(flights[i - 1], f) : "") + flightCard(f)).join("") : empty("Add your flights, or use Find flights")}
+      ${inc.flights ? `<div class="doc-section">Flights</div>
+      ${flights.length ? flights.map((f, i) => (i ? layover(flights[i - 1], f) : "") + flightCard(f)).join("") : empty("Add your flights, or use Find flights")}` : ""}
 
-      <div class="doc-section">Accommodation</div>
+      ${inc.stays ? `<div class="doc-section">Accommodation</div>
       ${stays.length ? `<div class="stays">${stays.map((h) => `
         <div class="stay">
           <div class="stay-top"><strong>${esc(h.name) || "Accommodation"}</strong><span class="pill ${statusClass(h.status)}">${esc(h.status)}</span></div>
@@ -160,7 +166,7 @@
             <div><span>Check-out</span>${esc(shortDate(h.out)) || "—"}</div>
             <div><span>Nights</span>${nights(h.in, h.out) || "—"}</div>
           </div>
-        </div>`).join("")}</div>` : empty("Add where you'll stay")}
+        </div>`).join("")}</div>` : empty("Add where you'll stay")}` : ""}
 
       ${days.length ? `<div class="doc-section">Day-by-day plan</div><table class="plan"><tbody>
         ${days.map((d) => `<tr><td class="plan-date">${esc(shortDate(d.date))}</td><td class="plan-city">${esc(d.city)}</td><td>${esc(d.plan)}</td></tr>`).join("")}
@@ -168,7 +174,7 @@
 
       ${s.notes ? `<div class="doc-section">Notes</div><div style="white-space:pre-wrap">${esc(s.notes)}</div>` : ""}
 
-      <div class="doc-foot">Prepared by the traveller on ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. This document sets out planned travel; each flight and stay shows whether it is planned, held, booked, or confirmed.</div>
+      <div class="doc-foot">Prepared by the traveller on ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. This document sets out planned travel; each ${inc.flights && inc.stays ? "flight and stay" : inc.stays ? "stay" : "flight"} shows whether it is planned, held, booked, or confirmed.</div>
     `;
   }
 
@@ -197,6 +203,9 @@
 
   function update() {
     const s = read();
+    document.getElementById("fs-flights").hidden = !s.inc.flights;
+    document.getElementById("fs-stays").hidden = !s.inc.stays;
+    document.getElementById("fs-days").hidden = !s.inc.days;
     render(s);
     updateHotelLinks(s);
     window.store.set(KEY, s);

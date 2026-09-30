@@ -22,6 +22,15 @@
     </fieldset>
 
     <fieldset>
+      <legend>Include in itinerary</legend>
+      <div class="include">
+        <label><input type="checkbox" name="incFlights" checked> Flights</label>
+        <label><input type="checkbox" name="incStays" checked> Accommodation</label>
+        <label><input type="checkbox" name="incDays" checked> Day-by-day plan</label>
+      </div>
+    </fieldset>
+
+    <fieldset id="fs-flights">
       <legend>Flights</legend>
       <div class="finder" id="finder">
         <p class="finder-h">Find real flights automatically</p>
@@ -47,13 +56,13 @@
       <button type="button" class="btn btn-ghost btn-sm" data-add="flights">+ Add flight</button>
     </fieldset>
 
-    <fieldset>
+    <fieldset id="fs-stays">
       <legend>Accommodation</legend>
       <div id="stays"></div>
       <button type="button" class="btn btn-ghost btn-sm" data-add="stays">+ Add stay</button>
     </fieldset>
 
-    <fieldset>
+    <fieldset id="fs-days">
       <legend>Day-by-day plan <span class="muted">(optional)</span></legend>
       <div id="days"></div>
       <button type="button" class="btn btn-ghost btn-sm" data-add="days">+ Add day</button>

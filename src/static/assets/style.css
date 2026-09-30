@@ -270,3 +270,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; backgr
   .paper .doc-meta { text-align: left; }
   .paper .fl-time { font-size: 18px; }
 }
+
+/* "Include in itinerary" chooser */
+.include { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.include label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .95rem; font-weight: 500; cursor: pointer; }
+.include input { width: 18px; height: 18px; accent-color: var(--brand); }
+fieldset[hidden] { display: none; }
