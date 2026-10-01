@@ -12,7 +12,7 @@ const TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 const PLACES = "https://autocomplete.travelpayouts.com/places2";
 const IATA = /^[A-Z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CACHE_VERSION = "6";
+const CACHE_VERSION = "8";
 
 export default {
   async fetch(request, env, ctx) {
@@ -276,7 +276,7 @@ const addDays = (d, n) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).
 
 // All scheduled departures from one airport on one local day, cached in KV.
 async function departures(env, airport, date) {
-  const key = `adb:v2:${airport}:${date}`;
+  const key = `adb:v3:${airport}:${date}`;
   if (env.CACHE) {
     const hit = await env.CACHE.get(key, "json");
     if (hit) return hit;
@@ -344,6 +344,8 @@ function timetableEntry(e, originCode) {
     arrUtc: arr.scheduledTime?.utc ? utcMs(arr.scheduledTime.utc) : 0,
     stops: 0,
     aircraft: e.aircraft?.model || "",
+    depTerminal: dep.terminal || "",
+    arrTerminal: arr.terminal || "",
     source: "timetable",
   };
 }

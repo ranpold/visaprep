@@ -134,7 +134,7 @@
 
   async function lookup(from, to, date) {
     // `v` changes when the API's result format or logic changes, bypassing stale browser caches.
-    const r = await fetch(`${base}/api/flights?from=${from}&to=${to}&date=${date}&v=3`);
+    const r = await fetch(`${base}/api/flights?from=${from}&to=${to}&date=${date}&v=4`);
     const body = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(body.error || "Flight lookup failed.");
     return body;
@@ -160,6 +160,8 @@
       set("arr", seg.arrTime);
       set("status", "Planned (not booked)");
       set("aircraft", seg.aircraft || "");
+      set("depTerm", seg.depTerminal || "");
+      set("arrTerm", seg.arrTerminal || "");
       set("arrDate", seg.arrDate || "");
       set("dur", seg.durationMin || "");
       set("depUtc", seg.depUtc || "");

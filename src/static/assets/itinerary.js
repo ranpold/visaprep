@@ -69,13 +69,24 @@
     const m = /^(.*?)\s*\(([A-Z]{3})\)\s*$/.exec(label || "");
     return m ? { city: m[1], code: m[2] } : { city: label || "", code: "" };
   };
-  const shortDate = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "");
-  const longDate = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "");
-  const fmtDur = (m) => (m > 0 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : "");
+  const asDate = (d) => new Date(d + "T00:00:00");
+  // "Fri, Nov 20" / "Fri, Nov 20, 2026"
+  const dShort = (d) => (d ? asDate(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "");
+  const dLong = (d) => (d ? asDate(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "");
+  // "03:40" -> "3:40am"
+  const t12 = (t) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(t || "");
+    if (!m) return t || "";
+    const h = +m[1];
+    return `${h % 12 || 12}:${m[2]}${h < 12 ? "am" : "pm"}`;
+  };
+  // 580 -> "9 h 40 m"
+  const dur = (m) => (m > 0 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} m` : "");
   const statusClass = (st) => (/confirmed|booked/i.test(st || "") ? "is-booked" : /held|reserved|host/i.test(st || "") ? "is-held" : "is-plan");
   const shortStatus = (st) => (st || "").replace(/\s*\(.*\)$/, "");
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const dayShift = (from, to) => (from && to && to > from ? Math.round((Date.parse(to) - Date.parse(from)) / 86400000) : 0);
+  const term = (t) => (t ? `<span class="ex-term">Terminal ${esc(t)}</span>` : "");
 
   // Consecutive flights that connect (same airport, next leaves within a day) form one journey.
   function journeys(flights) {
@@ -93,60 +104,63 @@
     return out;
   }
 
-  function journeyTitle(j, idx, all) {
-    if (all.length === 1) return "Flight";
+  function journeyTitle(idx, all) {
+    if (all.length === 1) return "Departure";
     const home = splitPlace(all[0][0].from).code;
+    const last = all[idx][all[idx].length - 1];
     if (idx === 0) return "Departure";
-    if (idx === all.length - 1 && home && splitPlace(j[j.length - 1].to).code === home) return "Return";
-    return `Journey ${idx + 1}`;
+    if (idx === all.length - 1 && home && splitPlace(last.to).code === home) return "Return";
+    return "Departure";
   }
 
   function journeyBlock(j, title) {
     const first = j[0], last = j[j.length - 1];
     const stops = j.length - 1;
     const total = +first.depUtc && +last.arrUtc ? Math.round((+last.arrUtc - +first.depUtc) / 60000) : j.length === 1 ? +first.dur : 0;
-    const a = splitPlace(first.from), b = splitPlace(last.to);
-    // Year is already in the document header, so the journey bar stays short enough for one line.
-    const facts = [shortDate(first.date), stops ? plural(stops, "stop") : "Non-stop", fmtDur(total)].filter(Boolean);
-    const rows = j
+    const segs = j
       .map((f, i) => {
         let lay = "";
         if (i) {
           const p = j[i - 1];
           const mins = +p.arrUtc && +f.depUtc ? Math.round((+f.depUtc - +p.arrUtc) / 60000) : 0;
           const at = splitPlace(p.to);
-          lay = `<div class="it-lay"><span>${mins > 0 ? esc(fmtDur(mins)) + " layover" : "Connection"} · ${esc(at.city)}${at.code ? ` (${esc(at.code)})` : ""}</span></div>`;
+          lay = `<div class="ex-lay">Layover${mins > 0 ? `: <strong>${esc(dur(mins))}</strong>` : ""} <span>in ${esc(at.city)}${at.code ? ` (${esc(at.code)})` : ""}</span></div>`;
         }
-        return lay + segment(f);
+        return lay + segment(f, i === j.length - 1 && j.length > 1 ? first.date : null);
       })
       .join("");
     return `
-      <section class="it-journey">
-        <header class="it-jhead">
-          <h3>${esc(title)}</h3>
-          <p class="it-route">${esc(a.city || "—")} <span aria-hidden="true">→</span> ${esc(b.city || "—")}</p>
-          <p class="it-facts">${facts.map(esc).join(" · ")}</p>
-        </header>
-        ${rows}
+      <section class="ex-journey">
+        <div class="ex-jhead">
+          <span class="ex-jdate">${esc(dShort(first.date))}</span>
+          <span class="ex-jtitle">– ${esc(title)}</span>
+          <span class="ex-jstops">${stops ? esc(plural(stops, "stop")) : "Nonstop"}</span>
+          ${total ? `<span class="ex-jtotal">Total travel time: ${esc(dur(total))}</span>` : ""}
+        </div>
+        ${segs}
       </section>`;
   }
 
-  function segment(f) {
+  // One flight: city headline + duration, then departure / arrival lines, carrier details on the right.
+  function segment(f, journeyStart) {
     const a = splitPlace(f.from), b = splitPlace(f.to);
     const shift = dayShift(f.date, f.arrDate);
-    const detail = [fmtDur(+f.dur), f.aircraft].filter(Boolean).join(" · ");
+    const carrier = [f.cabin, f.aircraft].filter(Boolean).join(" · ");
+    const arrivesOn = journeyStart && f.arrDate && f.arrDate !== journeyStart ? `<div class="ex-arrives">(Arrives on ${esc(dShort(f.arrDate))})</div>` : "";
     return `
-      <div class="it-seg">
-        <div class="it-times">
-          <div class="it-pt"><span class="it-time">${esc(f.dep) || "--:--"}</span><span class="it-code">${esc(a.code)}</span><span class="it-city">${esc(a.city)}</span></div>
-          <div class="it-track" aria-hidden="true"></div>
-          <div class="it-pt"><span class="it-time">${esc(f.arr) || "--:--"}${shift ? `<sup>+${shift}</sup>` : ""}</span><span class="it-code">${esc(b.code)}</span><span class="it-city">${esc(b.city)}${shift ? ` · ${esc(shortDate(f.arrDate))}` : ""}</span></div>
-        </div>
-        <div class="it-carrier">
-          <div class="it-flno">${esc(f.flightNo) || "&nbsp;"}</div>
-          <div class="it-air">${esc(f.airline)}</div>
-          ${detail ? `<div class="it-det">${esc(detail)}</div>` : ""}
-          <div class="it-status ${statusClass(f.status)}">${esc(shortStatus(f.status))}</div>
+      <div class="ex-seg">
+        <div class="ex-seghead"><span>${esc(a.city || "—")} <span class="ex-arrow">→</span> ${esc(b.city || "—")}</span><span class="ex-dur">${esc(dur(+f.dur))}</span></div>
+        <div class="ex-segbody">
+          <div class="ex-ends">
+            <div class="ex-end"><span class="ex-code">${esc(a.code)}</span><span class="ex-time">${esc(t12(f.dep)) || "—"}</span>${term(f.depTerm)}</div>
+            <div class="ex-end"><span class="ex-code">${esc(b.code)}</span><span class="ex-time">${esc(t12(f.arr)) || "—"}</span>${shift ? `<span class="ex-plus">+${shift} day</span>` : ""}${term(f.arrTerm)}</div>
+            ${arrivesOn}
+          </div>
+          <div class="ex-carrier">
+            <div class="ex-airline">${esc(f.airline)}${f.flightNo ? ` <span>${esc(f.flightNo.replace(/^[A-Z0-9]{2}\s+/, ""))}</span>` : ""}</div>
+            ${carrier ? `<div class="ex-cabin">${esc(carrier)}</div>` : ""}
+            <div class="ex-status ${statusClass(f.status)}">${esc(shortStatus(f.status))}</div>
+          </div>
         </div>
       </div>`;
   }
@@ -159,52 +173,51 @@
     const days = (inc.days ? s.days : []).filter((d) => d.date || d.plan).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const allDates = [...flights.flatMap((f) => [f.date, f.arrDate]), ...stays.flatMap((h) => [h.in, h.out]), ...days.map((d) => d.date)].filter(Boolean).sort();
     const start = allDates[0], end = allDates[allDates.length - 1];
-    const tripDays = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1 : 0;
-    const stayNights = stays.reduce((n, h) => n + (+nights(h.in, h.out) || 0), 0);
     const js = journeys(flights);
-    const origin = flights[0] ? splitPlace(flights[0].from).city : "";
-    const places = [...new Set([...stays.map((h) => h.city), ...js.map((j) => splitPlace(j[j.length - 1].to).city)].filter((c) => c && c !== origin))];
-    const empty = (msg) => `<p class="it-empty">${msg}</p>`;
+    const origin = js[0] ? splitPlace(js[0][0].from) : null;
+    const outDest = js[0] ? splitPlace(js[0][js[0].length - 1].to) : null;
+    const places = [...new Set([...(outDest ? [outDest.city] : []), ...stays.map((h) => h.city)].filter((c) => c && c !== origin?.city))];
+    const roundTrip = js.length > 1 && origin && splitPlace(js[js.length - 1][js[js.length - 1].length - 1].to).code === origin.code;
+    const empty = (msg) => `<p class="ex-empty">${msg}</p>`;
 
-    preview.className = "paper itin";
+    preview.className = "paper exp";
     preview.innerHTML = `
-      <header class="it-head">
-        <div class="it-titleblock">
-          <p class="it-kicker">Travel itinerary</p>
-          <h2>${esc(s.tripTitle) || "My trip"}</h2>
-          <p class="it-dates">${start ? `${esc(longDate(start))} – ${esc(longDate(end))}` : "Dates to be added"}</p>
+      <header class="ex-top">
+        <div>
+          <h2>${esc(places[0] || s.tripTitle || "My trip")}</h2>
+          <p class="ex-range">${start ? `${esc(dShort(start))} – ${esc(dLong(end))}` : "Dates to be added"}</p>
         </div>
-        <dl class="it-people">
-          <div><dt>${travellers.length === 1 ? "Traveller" : "Travellers"}</dt><dd>${travellers.length ? travellers.map(esc).join("<br>") : '<span class="it-empty">Add names</span>'}</dd></div>
-          <div><dt>Purpose</dt><dd>${esc(s.purpose)}</dd></div>
-          ${s.contact ? `<div><dt>Contact</dt><dd>${esc(s.contact)}</dd></div>` : ""}
-        </dl>
+        <p class="ex-doc">Travel itinerary${s.tripTitle ? `<span>${esc(s.tripTitle)}</span>` : ""}</p>
       </header>
 
-      <dl class="it-summary">
-        <div><dt>Destination${places.length === 1 ? "" : "s"}</dt><dd>${places.length ? esc(places.join(", ")) : "—"}</dd></div>
-        <div><dt>Duration</dt><dd>${tripDays ? esc(plural(tripDays, "day")) : "—"}${stayNights ? ` · ${esc(plural(stayNights, "night"))} stay` : ""}</dd></div>
-        <div><dt>Travellers</dt><dd>${travellers.length || "—"}</dd></div>
-      </dl>
+      ${origin && outDest ? `<div class="ex-trip">
+        <span class="ex-tripline">${esc(origin.city)} (${esc(origin.code)}) <span class="ex-arrow">→</span> ${esc(outDest.city)} (${esc(outDest.code)})</span>
+        <span class="ex-tripmeta">${esc([start && end ? `${dShort(start)} – ${dLong(end)}` : "", roundTrip ? "Round trip" : js.length > 1 ? "Multi-city" : "One way", travellers.length ? plural(travellers.length, "traveller") : ""].filter(Boolean).join(" · "))}</span>
+      </div>` : ""}
 
-      ${inc.flights ? `<h3 class="it-sec">Flights</h3>${js.length ? js.map((j, i) => journeyBlock(j, journeyTitle(j, i, js))).join("") : empty("Add your flights, or use Find flights")}` : ""}
+      <section class="ex-block">
+        <h3>Traveller information</h3>
+        ${travellers.length ? `<ul class="ex-travs">${travellers.map((t) => `<li><strong>${esc(t)}</strong><span>Adult</span></li>`).join("")}</ul>` : empty("Add traveller names")}
+        <dl class="ex-facts">
+          <div><dt>Purpose of travel</dt><dd>${esc(s.purpose)}</dd></div>
+          ${s.contact ? `<div><dt>Contact</dt><dd>${esc(s.contact)}</dd></div>` : ""}
+        </dl>
+      </section>
 
-      ${inc.stays ? `<h3 class="it-sec">Accommodation</h3>${stays.length ? `
-        <table class="it-table">
-          <thead><tr><th>Stay</th><th>Check-in</th><th>Check-out</th><th class="num">Nights</th><th>Status</th></tr></thead>
-          <tbody>${stays.map((h) => `<tr>
-            <td><strong>${esc(h.name) || "Accommodation"}</strong><span class="it-sub">${esc(h.city)}${h.address ? ` · ${esc(h.address)}` : ""}</span></td>
-            <td>${esc(shortDate(h.in)) || "—"}</td><td>${esc(shortDate(h.out)) || "—"}</td>
-            <td class="num">${nights(h.in, h.out) || "—"}</td>
-            <td><span class="it-status ${statusClass(h.status)}">${esc(shortStatus(h.status))}</span></td></tr>`).join("")}</tbody>
-        </table>` : empty("Add where you'll stay")}` : ""}
+      ${inc.flights ? `<section class="ex-block"><h3>Flights</h3>${js.length ? js.map((j, i) => journeyBlock(j, journeyTitle(i, js))).join("") : empty("Add your flights, or use Find flights")}</section>` : ""}
 
-      ${days.length ? `<h3 class="it-sec">Day-by-day plan</h3>
-        <table class="it-table it-plan"><tbody>
-        ${days.map((d) => `<tr><td class="it-pdate">${esc(shortDate(d.date))}</td><td class="it-pcity">${esc(d.city)}</td><td>${esc(d.plan)}</td></tr>`).join("")}
-        </tbody></table>` : ""}
+      ${inc.stays ? `<section class="ex-block"><h3>Accommodation</h3>${stays.length ? stays.map((h) => `
+        <div class="ex-stay">
+          <div class="ex-stayhead"><strong>${esc(h.name) || "Accommodation"}</strong><span class="ex-status ${statusClass(h.status)}">${esc(shortStatus(h.status))}</span></div>
+          <div class="ex-stayaddr">${esc([h.address, h.city].filter(Boolean).join(", "))}</div>
+          <div class="ex-staydates"><span><em>Check-in</em>${esc(dLong(h.in)) || "—"}</span><span><em>Check-out</em>${esc(dLong(h.out)) || "—"}</span><span><em>Nights</em>${nights(h.in, h.out) || "—"}</span></div>
+        </div>`).join("") : empty("Add where you'll stay")}</section>` : ""}
 
-      ${s.notes ? `<h3 class="it-sec">Notes</h3><p class="it-notes">${esc(s.notes)}</p>` : ""}
+      ${days.length ? `<section class="ex-block"><h3>Day-by-day plan</h3><table class="ex-plan"><tbody>
+        ${days.map((d) => `<tr><td class="ex-pdate">${esc(dShort(d.date))}</td><td class="ex-pcity">${esc(d.city)}</td><td>${esc(d.plan)}</td></tr>`).join("")}
+      </tbody></table></section>` : ""}
+
+      ${s.notes ? `<section class="ex-block"><h3>Notes</h3><p class="ex-notes">${esc(s.notes)}</p></section>` : ""}
     `;
   }
 

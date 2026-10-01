@@ -225,81 +225,86 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; backgr
 .f-group + .hotel-cta, #f-results > .hotel-cta { margin-top: 14px; }
 
 /* ---- Itinerary document (preview + PDF) ----
-   Airline-document style: rules not boxes, navy accent, condensed type for times/codes.
-   Hex colours on purpose: html2canvas (PDF export) cannot parse oklch(). */
-.paper.itin {
-  --ink: #16202e; --ink-2: #4a5566; --ink-3: #7d8797; --rule: #d9dee6; --rule-2: #eef1f5;
-  --navy: #1f3a68; --navy-soft: #eef2f8; --ok: #1d5e45; --ok-soft: #e7f2ec; --held: #7a5410; --held-soft: #fbf3e2;
-  background: #fdfdfe; color: var(--ink); font: 13px/1.45 "Public Sans", system-ui, sans-serif;
-  padding: 40px 44px; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+   Classic travel-itinerary email layout: plain white page, blue headings, hairline rules,
+   small grey labels, bold times and codes. Hex colours on purpose: html2canvas can't parse oklch(). */
+.paper.exp {
+  --ink: #1b1f24; --ink-2: #4b5563; --ink-3: #6b7280; --line: #d6d9de; --line-2: #eceef1; --band: #f4f6f8;
+  --blue: #1f4f8f; --ok: #1d6b47; --ok-bg: #e8f4ee; --held: #8a5a0a; --held-bg: #fdf4e2;
+  background: #ffffff; color: var(--ink); font: 13px/1.45 "Public Sans", Arial, sans-serif; padding: 32px 36px;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.itin h2, .itin h3, .itin .it-time, .itin .it-code, .itin .it-flno, .itin .it-kicker, .itin dt, .itin th { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: 0; }
-.itin p, .itin dl, .itin dd { margin: 0; }
+.exp h2, .exp h3, .exp p, .exp dl, .exp dd, .exp ul { margin: 0; padding: 0; }
+.exp .ex-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.exp h2 { font-family: "Public Sans", Arial, sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.exp .ex-range { font-size: 13.5px; color: var(--ink-2); margin-top: 2px; }
+.exp .ex-doc { text-align: right; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.exp .ex-doc span { display: block; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
 
-.itin .it-head { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; padding-bottom: 16px; border-bottom: 2px solid var(--navy); }
-.itin .it-kicker { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: var(--navy); }
-.itin h2 { font-size: 32px; font-weight: 600; line-height: 1.05; margin: 4px 0 6px; color: var(--ink); }
-.itin .it-dates { font-size: 14px; color: var(--ink-2); font-weight: 500; }
-.itin .it-people { display: grid; gap: 8px; text-align: right; min-width: 150px; }
-.itin dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
-.itin dd { font-size: 13px; font-weight: 500; }
+.exp .ex-trip { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; background: var(--band); padding: 10px 12px; margin-top: 14px; }
+.exp .ex-tripline { font-size: 15px; font-weight: 700; color: var(--blue); }
+.exp .ex-tripmeta { font-size: 12.5px; color: var(--ink-2); align-self: center; }
+.exp .ex-arrow { color: var(--ink-3); font-weight: 400; }
 
-.itin .it-summary { display: grid; grid-template-columns: 2fr 1.4fr 1fr; border-bottom: 1px solid var(--rule); }
-.itin .it-summary > div { padding: 10px 12px 10px 0; }
-.itin .it-summary > div + div { padding-left: 14px; border-left: 1px solid var(--rule); }
-.itin .it-summary dd { font-size: 14px; font-weight: 600; }
+.exp .ex-block { margin-top: 18px; }
+.exp h3 { font-family: "Public Sans", Arial, sans-serif; font-size: 14px; font-weight: 700; color: var(--blue); padding-bottom: 6px; border-bottom: 2px solid var(--blue); margin-bottom: 8px; }
+.exp .ex-travs { list-style: none; }
+.exp .ex-travs li { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--line-2); }
+.exp .ex-travs li span { color: var(--ink-3); font-size: 12px; }
+.exp .ex-facts { display: flex; flex-wrap: wrap; gap: 4px 28px; margin-top: 8px; }
+.exp .ex-facts dt { font-size: 11px; color: var(--ink-3); }
+.exp .ex-facts dd { font-weight: 600; }
 
-.itin .it-sec { font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); margin: 26px 0 10px; }
+.exp .ex-journey { margin-bottom: 14px; break-inside: avoid; page-break-inside: avoid; }
+.exp .ex-jhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 7px 0 6px; border-bottom: 1px solid var(--line); }
+.exp .ex-jdate { font-weight: 700; font-size: 14px; }
+.exp .ex-jtitle { font-weight: 700; font-size: 14px; }
+.exp .ex-jstops { font-size: 12.5px; color: var(--ink-2); }
+.exp .ex-jtotal { margin-left: auto; font-size: 12.5px; color: var(--ink-2); }
 
-.itin .it-journey { margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
-.itin .it-jhead { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 12px; padding: 7px 12px; background: var(--navy); color: #f5f7fb; border-radius: 3px; }
-.itin .it-jhead h3 { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; margin: 0; }
-.itin .it-route { font-weight: 600; font-size: 13px; white-space: nowrap; }
-.itin .it-facts { font-size: 12px; color: #c9d3e6; text-align: right; min-width: 0; }
+.exp .ex-seg { padding: 10px 0 10px 12px; border-bottom: 1px solid var(--line-2); break-inside: avoid; page-break-inside: avoid; }
+.exp .ex-seghead { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+.exp .ex-dur { color: var(--ink-2); font-weight: 500; white-space: nowrap; }
+.exp .ex-segbody { display: grid; grid-template-columns: 1fr minmax(150px, 42%); gap: 12px; }
+.exp .ex-ends { display: grid; gap: 3px; }
+.exp .ex-end { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.exp .ex-code { font-weight: 700; font-size: 14px; width: 36px; }
+.exp .ex-time { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; min-width: 62px; }
+.exp .ex-plus { font-size: 11.5px; font-weight: 700; color: #b3441b; }
+.exp .ex-term { font-size: 12px; color: var(--ink-3); }
+.exp .ex-arrives { font-size: 12px; color: var(--ink-2); margin-left: 46px; }
+.exp .ex-carrier { text-align: right; font-size: 12.5px; }
+.exp .ex-airline { font-weight: 600; }
+.exp .ex-airline span { font-weight: 700; }
+.exp .ex-cabin { color: var(--ink-2); }
+.exp .ex-status { display: inline-block; margin-top: 5px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 7px; border-radius: 2px; }
+.exp .is-plan { color: var(--ink-2); background: var(--line-2); }
+.exp .is-held { color: var(--held); background: var(--held-bg); }
+.exp .is-booked { color: var(--ok); background: var(--ok-bg); }
+.exp .ex-lay { padding: 5px 0 5px 12px; font-size: 12.5px; color: var(--ink-2); background: var(--band); }
+.exp .ex-lay strong { color: var(--ink); }
 
-.itin .it-seg { display: grid; grid-template-columns: 1fr 190px; gap: 16px; padding: 12px 12px 12px 12px; border-bottom: 1px solid var(--rule-2); }
-.itin .it-times { display: grid; grid-template-rows: auto 14px auto; }
-.itin .it-pt { display: grid; grid-template-columns: 62px 44px 1fr; align-items: baseline; gap: 6px; }
-.itin .it-time { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.itin .it-time sup { font-size: 11px; font-weight: 700; color: #b4461b; margin-left: 1px; }
-.itin .it-code { font-size: 16px; font-weight: 700; color: var(--navy); letter-spacing: .04em; }
-.itin .it-city { font-size: 12.5px; color: var(--ink-2); }
-.itin .it-track { margin-left: 22px; border-left: 2px dotted var(--rule); }
-.itin .it-carrier { text-align: right; display: grid; align-content: start; gap: 1px; }
-.itin .it-flno { font-size: 17px; font-weight: 700; }
-.itin .it-air { font-size: 12.5px; font-weight: 500; }
-.itin .it-det { font-size: 11.5px; color: var(--ink-3); }
-.itin .it-status { justify-self: end; margin-top: 6px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
-.itin td .it-status { margin-top: 0; display: inline-block; }
-.itin .is-plan { color: var(--ink-2); background: var(--rule-2); border-color: var(--rule); }
-.itin .is-held { color: var(--held); background: var(--held-soft); }
-.itin .is-booked { color: var(--ok); background: var(--ok-soft); }
-.itin .it-lay { display: flex; align-items: center; gap: 10px; padding: 6px 12px; font-size: 11.5px; font-weight: 600; color: var(--held); background: var(--held-soft); }
-.itin .it-lay::before, .itin .it-lay::after { content: ""; flex: 1; border-top: 1px dashed #e2c98f; }
+.exp .ex-stay { padding: 8px 0 10px; border-bottom: 1px solid var(--line-2); break-inside: avoid; page-break-inside: avoid; }
+.exp .ex-stayhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13.5px; }
+.exp .ex-stayhead .ex-status { margin-top: 0; }
+.exp .ex-stayaddr { color: var(--ink-2); font-size: 12.5px; margin: 1px 0 6px; }
+.exp .ex-staydates { display: flex; flex-wrap: wrap; gap: 4px 28px; font-weight: 600; }
+.exp .ex-staydates em { display: block; font-style: normal; font-weight: 400; font-size: 11px; color: var(--ink-3); }
 
-.itin .it-table { width: 100%; border-collapse: collapse; }
-.itin .it-table th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); text-align: left; padding: 0 10px 6px 0; border-bottom: 1px solid var(--rule); }
-.itin .it-table td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--rule-2); vertical-align: top; font-size: 13px; }
-.itin .it-table tr { break-inside: avoid; page-break-inside: avoid; }
-.itin .it-table .num { text-align: right; padding-right: 14px; }
-.itin .it-sub { display: block; font-size: 12px; color: var(--ink-2); margin-top: 1px; }
-.itin .it-pdate { white-space: nowrap; font-weight: 600; width: 1%; }
-.itin .it-pcity { white-space: nowrap; font-weight: 600; color: var(--navy); width: 1%; }
-.itin .it-notes { white-space: pre-wrap; color: var(--ink-2); }
-.itin .it-empty { color: var(--ink-3); font-style: italic; margin: 4px 0; }
+.exp .ex-plan { width: 100%; border-collapse: collapse; }
+.exp .ex-plan td { padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.exp .ex-plan tr { break-inside: avoid; page-break-inside: avoid; }
+.exp .ex-pdate { white-space: nowrap; font-weight: 700; width: 1%; }
+.exp .ex-pcity { white-space: nowrap; color: var(--blue); font-weight: 600; width: 1%; }
+.exp .ex-notes { white-space: pre-wrap; color: var(--ink-2); }
+.exp .ex-empty { color: var(--ink-3); font-style: italic; }
 
 @media (max-width: 560px) {
-  .paper.itin { padding: 22px 16px; }
-  .itin .it-head { grid-template-columns: 1fr; }
-  .itin .it-people { text-align: left; }
-  .itin .it-summary { grid-template-columns: 1fr 1fr; }
-  .itin .it-summary > div:first-child { grid-column: 1 / -1; }
-  .itin .it-summary > div:nth-child(2) { border-left: 0; padding-left: 0; }
-  .itin .it-jhead { grid-template-columns: 1fr; gap: 2px; }
-  .itin .it-facts { text-align: left; }
-  .itin .it-seg { grid-template-columns: 1fr; gap: 8px; }
-  .itin .it-carrier { text-align: left; }
-  .itin .it-status { justify-self: start; }
+  .paper.exp { padding: 20px 16px; }
+  .exp .ex-top { flex-direction: column; align-items: flex-start; }
+  .exp .ex-doc { text-align: left; }
+  .exp .ex-segbody { grid-template-columns: 1fr; }
+  .exp .ex-carrier { text-align: left; }
+  .exp .ex-jtotal { margin-left: 0; }
 }
 
 /* "Include in itinerary" chooser */

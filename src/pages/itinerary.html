@@ -110,7 +110,12 @@
       <div><label>Status</label><select data-k="status"><option>Planned (not booked)</option><option>Held (free hold)</option><option>Booked (refundable)</option><option>Booked</option><option>Confirmed</option></select></div>
     </div>
     <div class="row">
+      <div><label>Cabin</label><select data-k="cabin"><option>Economy</option><option>Premium Economy</option><option>Business</option><option>First</option></select></div>
       <div><label>Aircraft <span class="muted">(optional)</span></label><input data-k="aircraft" placeholder="Boeing 787"></div>
+    </div>
+    <div class="row">
+      <div><label>Departure terminal <span class="muted">(optional)</span></label><input data-k="depTerm" placeholder="2"></div>
+      <div><label>Arrival terminal <span class="muted">(optional)</span></label><input data-k="arrTerm" placeholder="1"></div>
     </div>
     <!-- Filled by the flight finder; used for duration and layover display. -->
     <input type="hidden" data-k="arrDate"><input type="hidden" data-k="dur"><input type="hidden" data-k="depUtc"><input type="hidden" data-k="arrUtc">
