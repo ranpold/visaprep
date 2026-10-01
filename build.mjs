@@ -2,6 +2,7 @@
 // Each page starts with a meta block:  <!--meta {"title": "...", "description": "..."} -->
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, cpSync, rmSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
+import { createHash } from "node:crypto";
 
 const config = JSON.parse(readFileSync("site.config.json", "utf8"));
 // Allow per-host override, e.g. SITE_URL=https://visaprep.pages.dev for Cloudflare Pages.
@@ -40,6 +41,18 @@ function walk(dir) {
   });
 }
 
+const hashes = {};
+function assetHash(file) {
+  if (!(file in hashes)) {
+    try {
+      hashes[file] = createHash("sha256").update(readFileSync(join("src/static/assets", file))).digest("hex").slice(0, 10);
+    } catch {
+      hashes[file] = "";
+    }
+  }
+  return hashes[file];
+}
+
 const urls = [];
 for (const file of walk(SRC)) {
   const raw = readFileSync(file, "utf8");
@@ -70,9 +83,15 @@ for (const file of walk(SRC)) {
     .replaceAll("{{contactEmail}}", config.contactEmail)
     .replaceAll("{{base}}", BASE);
 
+  // Cache-bust our own CSS/JS: append a content hash so browsers fetch a changed file at once.
+  const busted = html.replace(/(["'])((?:[^"']*)\/assets\/([\w.-]+\.(?:css|js)))\1/g, (m, q, url, file) => {
+    const v = assetHash(file);
+    return v ? `${q}${url}?v=${v}${q}` : m;
+  });
+
   const outFile = join(OUT, rel);
   mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, html);
+  writeFileSync(outFile, busted);
 }
 
 const today = new Date().toISOString().slice(0, 10);
