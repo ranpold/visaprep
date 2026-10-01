@@ -23,6 +23,7 @@ export default {
 
     try {
       if (url.pathname === "/api/places") return await cached(request, ctx, 86400, () => places(url));
+      if (url.pathname === "/api/tz") return await cached(request, ctx, 604800, () => timeZones(url));
       if (url.pathname === "/api/flights") return await cached(request, ctx, 21600, () => flights(url, env));
       return json({ error: "Not found" }, 404);
     } catch (err) {
@@ -81,6 +82,18 @@ async function places(url) {
 
 function airportRow(a, parent) {
   return { code: a.code, type: "airport", name: a.name, sub: `${a.city_name}, ${a.country_name}`, label: `${a.city_name} – ${a.name} (${a.code})`, parent };
+}
+
+// IANA time zones for airport/city codes, so the page can compute flight durations:
+//   GET /api/tz?codes=BOM,CDG -> { "BOM": "Asia/Kolkata", "CDG": "Europe/Paris" }
+async function timeZones(url) {
+  const codes = (url.searchParams.get("codes") || "").toUpperCase().split(",").filter((c) => IATA.test(c)).slice(0, 20);
+  const out = {};
+  for (const c of codes) {
+    const tz = ref.airports[c]?.[3] || ref.cities[c]?.[2];
+    if (tz) out[c] = tz;
+  }
+  return json(out);
 }
 
 async function flights(url, env) {

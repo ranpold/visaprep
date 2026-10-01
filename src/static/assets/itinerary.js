@@ -24,6 +24,14 @@
     });
     // Rows filled by the flight finder remember their leg so a new search replaces them.
     if (data._leg) node.dataset.leg = data._leg;
+    if (list === "flights") {
+      // Hand edits to when/where invalidate the computed duration; fillDurations() recomputes it.
+      const keys = ["date", "dep", "arr", "from", "to"];
+      node.addEventListener("input", (e) => {
+        if (!keys.includes(e.target.dataset.k)) return;
+        for (const k of ["dur", "depUtc", "arrUtc", "arrDate"]) node.querySelector(`[data-k="${k}"]`).value = "";
+      });
+    }
     node.querySelector(".remove").addEventListener("click", () => {
       node.remove();
       update();
@@ -221,6 +229,66 @@
     `;
   }
 
+  // --- Flight durations for flights entered by hand (the flight finder supplies them itself) ---
+  const tzCache = {};
+  const codeOfLabel = (label) => (/\(([A-Z]{3})\)\s*$/.exec(label || "") || [])[1] || "";
+  const addDay = (d) => new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
+
+  async function loadZones(codes) {
+    const need = codes.filter((c) => c && !(c in tzCache));
+    if (!need.length) return;
+    need.forEach((c) => (tzCache[c] = null));
+    try {
+      Object.assign(tzCache, await (await fetch(`${BASE}/api/tz?codes=${need.join(",")}`)).json());
+    } catch {
+      /* no time zones: durations simply stay blank */
+    }
+  }
+
+  // Local wall-clock date + time in an IANA zone -> UTC milliseconds.
+  function zonedToUtc(date, time, tz) {
+    const [y, mo, d] = date.split("-").map(Number);
+    const [h, mi] = time.split(":").map(Number);
+    const wall = Date.UTC(y, mo - 1, d, h, mi);
+    const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const offset = (ms) => {
+      const p = Object.fromEntries(fmt.formatToParts(ms).map((x) => [x.type, x.value]));
+      return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - ms;
+    };
+    const first = wall - offset(wall);
+    return wall - offset(first); // second pass settles daylight-saving edges
+  }
+
+  // Returns true if any flight gained a duration (caller re-renders).
+  async function fillDurations() {
+    const rows = [...document.getElementById("flights").children];
+    const field = (r, k) => r.querySelector(`[data-k="${k}"]`);
+    const todo = rows.filter((r) => !field(r, "dur").value && field(r, "date").value && field(r, "dep").value && field(r, "arr").value && codeOfLabel(field(r, "from").value) && codeOfLabel(field(r, "to").value));
+    if (!todo.length) return false;
+    await loadZones([...new Set(todo.flatMap((r) => [codeOfLabel(field(r, "from").value), codeOfLabel(field(r, "to").value)]))]);
+    let changed = false;
+    for (const r of todo) {
+      const tzA = tzCache[codeOfLabel(field(r, "from").value)], tzB = tzCache[codeOfLabel(field(r, "to").value)];
+      if (!tzA || !tzB) continue;
+      const dep = zonedToUtc(field(r, "date").value, field(r, "dep").value, tzA);
+      let arrDate = field(r, "arrDate").value || field(r, "date").value;
+      let arr = zonedToUtc(arrDate, field(r, "arr").value, tzB);
+      // No arrival date known: an arrival "before" departure means it lands the next day.
+      for (let i = 0; !field(r, "arrDate").value && arr <= dep && i < 2; i++) {
+        arrDate = addDay(arrDate);
+        arr = zonedToUtc(arrDate, field(r, "arr").value, tzB);
+      }
+      const mins = Math.round((arr - dep) / 60000);
+      if (mins <= 0 || mins > 40 * 60) continue;
+      field(r, "dur").value = mins;
+      field(r, "depUtc").value = dep;
+      field(r, "arrUtc").value = arr;
+      field(r, "arrDate").value = arrDate;
+      changed = true;
+    }
+    return changed;
+  }
+
   // Booking.com search (through our /go/hotels redirect, which adds partner tracking).
   function hotelLink(city, checkin, checkout, adults) {
     const q = new URLSearchParams({ city: city || "", adults: String(adults || 1) });
@@ -252,6 +320,7 @@
     render(s);
     updateHotelLinks(s);
     window.store.set(KEY, s);
+    fillDurations().then((changed) => changed && update());
   }
 
   const SAMPLE = {
