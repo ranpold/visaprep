@@ -364,7 +364,12 @@
     ],
   };
 
-  form.addEventListener("input", update);
+  // Typing re-renders at most once per frame instead of on every keystroke.
+  let frame = 0;
+  form.addEventListener("input", () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(update);
+  });
   form.addEventListener("change", update);
   document.querySelectorAll("[data-add]").forEach((b) =>
     b.addEventListener("click", () => {
