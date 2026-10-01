@@ -6,6 +6,7 @@
   --text: #1c1f23;
   --muted: #5d6570;
   --line: #e3e0d8;
+  --field-line: #8c8a84; /* form control borders: >= 3:1 against page and surface (WCAG 1.4.11) */
   --brand: #0f766e;
   --brand-ink: #ffffff;
   --brand-soft: #e6f4f1;
@@ -25,6 +26,7 @@
     --text: #e8eaec;
     --muted: #9aa3ab;
     --line: #4a545b;
+    --field-line: #67727a;
     --brand: #2dd4bf;
     --brand-ink: #062522;
     --brand-soft: #123330;
@@ -122,7 +124,7 @@ details[open] summary { margin-bottom: 8px; }
 fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin: 0 0 18px; background: var(--surface); }
 legend { font-weight: 600; padding: 0 6px; }
 label { display: block; font-size: .88rem; font-weight: 500; margin-bottom: 4px; }
-input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--field-line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; border-color: transparent; }
 a:focus-visible, button:focus-visible, summary:focus-visible, [contenteditable]:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: 4px; }
 textarea { min-height: 90px; resize: vertical; }
