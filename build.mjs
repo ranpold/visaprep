@@ -57,6 +57,8 @@ for (const file of walk(SRC)) {
   const html = layout
     .replaceAll("{{title}}", meta.title === config.siteName ? meta.title : `${meta.title} | ${config.siteName}`)
     .replaceAll("{{description}}", meta.description)
+    .replace("{{canonicalTag}}", meta.noindex ? "" : `<link rel="canonical" href="${canonical}">`)
+    .replace("{{robots}}", meta.noindex ? '<meta name="robots" content="noindex">' : "")
     .replaceAll("{{canonical}}", canonical)
     .replaceAll("{{adScript}}", adScript)
     .replaceAll("{{scripts}}", (meta.scripts || []).map((s) => `<script src="{{base}}${s}" defer></script>`).join("\n"))

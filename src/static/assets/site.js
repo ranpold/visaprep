@@ -56,6 +56,10 @@ function loadHtml2pdf() {
   html2pdfLoading ||= new Promise((resolve, reject) => {
     const s = document.createElement("script");
     s.src = HTML2PDF;
+    // Subresource integrity: refuse the script if the CDN copy was ever tampered with.
+    s.integrity = "sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==";
+    s.crossOrigin = "anonymous";
+    s.referrerPolicy = "no-referrer";
     s.onload = () => (window.html2pdf ? resolve(window.html2pdf) : reject(new Error("html2pdf missing")));
     s.onerror = () => reject(new Error("html2pdf failed to load"));
     document.head.appendChild(s);
@@ -85,6 +89,8 @@ window.downloadPdf = async (el, name, button) => {
       .save();
   } catch (err) {
     console.error(err);
+    // Generator unavailable (offline, blocked CDN): the print dialog's "Save as PDF" still works.
+    alert("The PDF generator couldn't load. Your browser's print dialog will open instead; choose \"Save as PDF\" as the destination.");
     window.print();
   } finally {
     if (button) {

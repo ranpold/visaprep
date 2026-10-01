@@ -12,7 +12,7 @@ const TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 const PLACES = "https://autocomplete.travelpayouts.com/places2";
 const IATA = /^[A-Z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CACHE_VERSION = "8";
+const CACHE_VERSION = "9";
 
 export default {
   async fetch(request, env, ctx) {
@@ -65,8 +65,16 @@ async function places(url) {
   const r = await fetch(q);
   if (!r.ok) throw new Error(`places ${r.status}`);
   const data = await r.json();
+  // The upstream search is fuzzy ("hyder" also returns Igdir, Tyler...). Keep places whose code,
+  // name or city starts with the term, or has a word that does; fall back to the top few only if
+  // nothing matches (helps with typos).
+  const t = term.toLowerCase();
+  const words = (str) => (str || "").toLowerCase().split(/[\s\-–,()/.]+/);
+  const relevant = (p) => p.code.toLowerCase() === t || [p.name, p.city_name].some((x) => (x || "").toLowerCase().startsWith(t) || words(x).some((w) => w.startsWith(t)));
+  const matched = data.filter(relevant);
+  const pool = matched.length ? matched : data.slice(0, 5);
   // Order: each city first, then its airports (busiest first), so "Paris" shows PAR, CDG, ORY...
-  const rows = data.filter((p) => p.type === "city" || ref.airports[p.code]);
+  const rows = pool.filter((p) => p.type === "city" || ref.airports[p.code]);
   const cities = rows.filter((p) => p.type === "city");
   const airports = rows.filter((p) => p.type === "airport").sort((a, b) => (b.weight || 0) - (a.weight || 0));
   const out = [];
@@ -77,7 +85,10 @@ async function places(url) {
     for (const a of own) out.push(airportRow(a, own.length > 1));
   }
   for (const a of airports) if (!cities.some((c) => c.code === a.city_code)) out.push(airportRow(a, false));
-  return json({ places: out.slice(0, 10) });
+  // One row per code+type (the same airport can arrive both on its own and under its city).
+  const seen = new Set();
+  const unique = out.filter((p) => !seen.has(p.type + p.code) && seen.add(p.type + p.code));
+  return json({ places: unique.slice(0, 10) });
 }
 
 function airportRow(a, parent) {
@@ -101,6 +112,12 @@ async function flights(url, env) {
   const to = (url.searchParams.get("to") || "").toUpperCase();
   const date = url.searchParams.get("date") || "";
   if (!IATA.test(from) || !IATA.test(to) || !DATE.test(date)) return json({ error: "Use 3-letter airport/city codes and a YYYY-MM-DD date." }, 400);
+  // Reject impossible dates (2026-02-30) and dates already past (a day of slack for time zones).
+  const d = new Date(date + "T00:00:00Z");
+  if (isNaN(d) || d.toISOString().slice(0, 10) !== date) return json({ error: "That date doesn't exist." }, 400);
+  if (d.getTime() < Date.now() - 2 * 86400000) return json({ error: "That date is in the past." }, 400);
+  if (!ref.airports[from] && !ref.cities[from]) return json({ error: `Unknown airport or city code: ${from}.` }, 400);
+  if (!ref.airports[to] && !ref.cities[to]) return json({ error: `Unknown airport or city code: ${to}.` }, 400);
   if (from === to) return json({ error: "Origin and destination are the same." }, 400);
   if (!env.ADB_KEY && !env.TP_TOKEN) return json({ error: "Flight lookup isn't configured yet." }, 503);
 

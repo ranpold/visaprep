@@ -9,13 +9,34 @@
   const status = $("f-status");
   const results = $("f-results");
   const KEY = "visaprep.finder.v1";
+  const today = () => new Date().toLocaleDateString("en-CA"); // local YYYY-MM-DD
 
   // --- Airport / city autocomplete (custom combobox; the chosen code lives in input.dataset.code) ---
-  const codeOf = (input) => {
-    if (input.dataset.code) return input.dataset.code;
+  const codeOf = (input) => input.dataset.code || (/\(([A-Z]{3})\)\s*$/.exec(input.value.trim()) || [])[1] || "";
+
+  async function fetchPlaces(term) {
+    const r = await fetch(`${base}/api/places?term=${encodeURIComponent(term)}&v=3`);
+    return (await r.json()).places || [];
+  }
+
+  // A typed 3-letter code is only accepted if it really is an airport/city code ("goa" is not GOA/Genoa).
+  async function resolveCode(input) {
+    if (codeOf(input)) return codeOf(input);
     const v = input.value.trim();
-    return (/\(([A-Z]{3})\)\s*$/.exec(v) || [])[1] || (/^[A-Z]{3}$/.test(v) ? v : "");
-  };
+    if (!/^[A-Za-z]{3}$/.test(v)) return "";
+    try {
+      // A place *named* what was typed wins over a code match ("Goa" is Goa/GOI, not GOA/Genoa).
+      const places = await fetchPlaces(v);
+      const match = places.find((p) => p.name.toLowerCase() === v.toLowerCase()) || places.find((p) => p.code === v.toUpperCase());
+      if (!match) return "";
+      input.value = match.label;
+      input.dataset.code = match.code;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      return match.code;
+    } catch {
+      return "";
+    }
+  }
 
   document.querySelectorAll("[data-place]").forEach((input) => {
     const list = document.getElementById(input.getAttribute("aria-controls"));
@@ -27,14 +48,21 @@
     const close = () => {
       list.hidden = true;
       input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
       active = -1;
     };
     const highlight = (i) => {
       active = i;
       [...list.children].forEach((li, j) => li.setAttribute("aria-selected", String(j === i)));
-      if (list.children[i]) list.children[i].scrollIntoView({ block: "nearest" });
+      const li = list.children[i];
+      if (li) {
+        li.scrollIntoView({ block: "nearest" });
+        input.setAttribute("aria-activedescendant", li.id);
+      }
     };
     const choose = (p) => {
+      clearTimeout(timer);
+      seq++; // drop any search still in flight so it can't reopen the list
       input.value = p.label;
       input.dataset.code = p.code;
       close();
@@ -43,10 +71,11 @@
     const render = (places, term) => {
       items = places;
       list.innerHTML = places.length
-        ? places.map((p, i) => `<li role="option" id="${list.id}-${i}" class="${p.parent ? "ac-child" : ""}"><span class="ac-code">${esc(p.code)}</span><span>${esc(p.name)}<span class="ac-sub">${esc(p.sub)}</span></span></li>`).join("")
+        ? places.map((p, i) => `<li role="option" id="${list.id}-${i}" aria-selected="false" class="${p.parent ? "ac-child" : ""}"><span class="ac-code">${esc(p.code)}</span><span>${esc(p.name)}<span class="ac-sub">${esc(p.sub)}</span></span></li>`).join("")
         : `<li class="ac-empty">No airports match "${esc(term)}"</li>`;
       list.hidden = false;
       input.setAttribute("aria-expanded", "true");
+      input.removeAttribute("aria-activedescendant");
       active = -1;
     };
 
@@ -58,8 +87,7 @@
       timer = setTimeout(async () => {
         const mine = ++seq;
         try {
-          const r = await fetch(`${base}/api/places?term=${encodeURIComponent(term)}&v=2`);
-          const { places = [] } = await r.json();
+          const places = await fetchPlaces(term);
           if (mine === seq) render(places, term); // ignore out-of-order responses
         } catch {
           close();
@@ -75,18 +103,15 @@
       else if (e.key === "Enter") { e.preventDefault(); choose(items[Math.max(active, 0)]); }
       else if (e.key === "Escape") close();
     });
-    // mousedown (not click) so the choice lands before the input's blur closes the list.
+    // Prevent the input losing focus on any press inside the list (options or its scrollbar).
     list.addEventListener("mousedown", (e) => {
-      const li = e.target.closest("li[role=option]");
-      if (!li) return;
       e.preventDefault();
-      choose(items[[...list.children].indexOf(li)]);
+      const li = e.target.closest("li[role=option]");
+      if (li) choose(items[[...list.children].indexOf(li)]);
     });
     input.addEventListener("blur", () => {
       setTimeout(close, 100);
-      // Accept a typed 3-letter code without picking from the list.
-      const v = input.value.trim().toUpperCase();
-      if (!input.dataset.code && /^[A-Z]{3}$/.test(v)) input.dataset.code = v;
+      resolveCode(input);
     });
   });
 
@@ -101,7 +126,7 @@
     e.currentTarget.classList.toggle("spun");
   });
 
-  // --- Trip type ---
+  // --- Trip type, dates, saved state ---
   const retWrap = $("f-ret-wrap");
   const oneWay = () => document.querySelector('input[name="f-trip"]:checked').value === "oneway";
   const syncTrip = () => {
@@ -109,8 +134,13 @@
     saved.trip = oneWay() ? "oneway" : "round";
     window.store.set(KEY, saved);
   };
+  // No past dates; the return can't be before the departure.
+  const syncDateLimits = () => {
+    $("f-out").min = today();
+    $("f-ret").min = $("f-out").value || today();
+  };
 
-  const saved = window.store.get(KEY, {});
+  let saved = window.store.get(KEY, {});
   ["f-from", "f-to", "f-out", "f-ret"].forEach((id) => {
     if (saved[id]) $(id).value = saved[id];
     if (saved[id + "-code"]) $(id).dataset.code = saved[id + "-code"];
@@ -118,11 +148,29 @@
       saved[id] = $(id).value;
       saved[id + "-code"] = $(id).dataset.code || "";
       window.store.set(KEY, saved);
+      syncDateLimits();
     });
   });
   if (saved.trip === "oneway") document.querySelector('input[name="f-trip"][value="oneway"]').checked = true;
   document.querySelectorAll('input[name="f-trip"]').forEach((r) => r.addEventListener("change", syncTrip));
   syncTrip();
+  syncDateLimits();
+
+  // "Clear all" in the itinerary also resets this panel.
+  window.addEventListener("itinerary:reset", () => {
+    ["f-from", "f-to", "f-out", "f-ret"].forEach((id) => {
+      $(id).value = "";
+      delete $(id).dataset.code;
+    });
+    document.querySelector('input[name="f-trip"][value="round"]').checked = true;
+    saved = {};
+    window.store.set(KEY, saved);
+    syncTrip();
+    syncDateLimits();
+    results.innerHTML = "";
+    status.className = "finder-status";
+    status.textContent = "";
+  });
 
   // --- Search ---
   const fmtDur = (m) => (m ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : "");
@@ -140,13 +188,13 @@
     return body;
   }
 
-  // Put a chosen flight into the itinerary: reuse the row this leg filled before, else an empty row, else a new one.
   // Put a chosen option into the itinerary: one row per flight segment (a connection is two rows).
-  // Rows this leg filled before are replaced; empty manual rows are reused before adding new ones.
+  // Rows this leg filled before are replaced (rows the traveller edited by hand lose their leg
+  // marker in itinerary.js, so they're kept); empty manual rows are reused before adding new ones.
   function apply(leg, f) {
     const box = $("flights");
     box.querySelectorAll(`[data-leg="${leg}"]`).forEach((r) => r.remove());
-    const isEmpty = (row) => [...row.querySelectorAll("input")].every((i) => !i.value);
+    const isEmpty = (row) => [...row.querySelectorAll("input:not([type=hidden])")].every((i) => !i.value);
     for (const seg of f.segments || [f]) {
       const row = [...box.children].find((r) => !r.dataset.leg && isEmpty(r)) || it.addItem("flights");
       row.dataset.leg = leg;
@@ -175,24 +223,33 @@
     it.update();
   }
 
-  // If the first stay has no dates yet, align it with the chosen flights.
+  // Align the first stay with the chosen flights. Dates we filled earlier are updated on a new
+  // search; dates the traveller typed are left alone.
   function fillStayDates() {
     const stay = $("stays").firstElementChild;
     if (!stay) return;
-    // Check in on the day the last outbound segment departs (connections span two rows).
-    const outRow = [...$("flights").querySelectorAll('[data-leg="out"]')].pop();
+    const outRows = [...$("flights").querySelectorAll('[data-leg="out"]')];
+    const last = outRows[outRows.length - 1];
     const retRow = $("flights").querySelector('[data-leg="ret"]');
-    const inEl = stay.querySelector('[data-k="in"]');
-    const outEl = stay.querySelector('[data-k="out"]');
-    if (outRow && !inEl.value) inEl.value = outRow.querySelector('[data-k="date"]').value;
-    if (retRow && !outEl.value) outEl.value = retRow.querySelector('[data-k="date"]').value;
+    const fill = (k, value) => {
+      const el = stay.querySelector(`[data-k="${k}"]`);
+      if (!value || (el.value && el.value !== stay.dataset["auto_" + k])) return;
+      el.value = value;
+      stay.dataset["auto_" + k] = value;
+    };
+    // Check in on the day the last outbound flight lands.
+    if (last) fill("in", last.querySelector('[data-k="arrDate"]').value || last.querySelector('[data-k="date"]').value);
+    if (retRow) fill("out", retRow.querySelector('[data-k="date"]').value);
   }
 
   function renderGroup(leg, title, data) {
     const wrap = document.createElement("div");
     wrap.className = "f-group";
     if (!data.results.length) {
-      wrap.innerHTML = `<h4>${esc(title)}</h4><p class="muted" style="margin:0">No flights found for this route in that month. Try a nearby major airport, or add the flight manually below.</p>`;
+      // Don't leave a previous search's flight for this leg in the itinerary.
+      $("flights").querySelectorAll(`[data-leg="${leg}"]`).forEach((r) => r.remove());
+      it.update();
+      wrap.innerHTML = `<h4>${esc(title)}</h4><p class="muted" style="margin:0">No flights found for this route around that date. Try a nearby major airport, or add the flight manually below.</p>`;
       return wrap;
     }
     const note = data.exact ? "" : ` <span class="muted">No data for ${esc(niceDate(data.date))}, so these are the nearest dates</span>`;
@@ -204,7 +261,7 @@
       li.innerHTML = `
         <div class="f-main">${esc(f.depTime)} → ${esc(f.arrTime)}${esc(dayShift(f.depDate, f.arrDate))} · ${esc(f.airlineName)} ${f.segments ? "" : esc(f.flightNo.replace(f.airline + " ", ""))}</div>
         <div class="f-act">
-          <button type="button" class="btn btn-ghost btn-sm">${i === 0 ? "Selected" : "Use this"}</button>
+          <button type="button" class="btn btn-ghost btn-sm" aria-pressed="${i === 0}">${i === 0 ? "Selected" : "Use this"}</button>
           ${f.link ? `<a href="${esc(f.link)}" target="_blank" rel="sponsored noopener">Check fares ↗</a>` : ""}
         </div>
         <div class="f-sub">${esc(niceDate(f.depDate))} · ${f.segments
@@ -213,10 +270,14 @@
       li.querySelector("button").addEventListener("click", () => {
         ul.querySelectorAll(".f-opt").forEach((o) => {
           o.classList.remove("picked");
-          o.querySelector("button").textContent = "Use this";
+          const b = o.querySelector("button");
+          b.textContent = "Use this";
+          b.setAttribute("aria-pressed", "false");
         });
         li.classList.add("picked");
-        li.querySelector("button").textContent = "Selected";
+        const b = li.querySelector("button");
+        b.textContent = "Selected";
+        b.setAttribute("aria-pressed", "true");
         apply(leg, f);
       });
       ul.appendChild(li);
@@ -226,30 +287,32 @@
   }
 
   $("f-go").addEventListener("click", async () => {
-    const from = codeOf($("f-from"));
-    const to = codeOf($("f-to"));
+    status.className = "finder-status";
+    status.textContent = "";
+    const [from, to] = await Promise.all([resolveCode($("f-from")), resolveCode($("f-to"))]);
     const out = $("f-out").value;
     const ret = oneWay() ? "" : $("f-ret").value;
-    status.className = "finder-status";
-    results.innerHTML = "";
-    if (!from || !to) return fail("Pick a city or airport from the suggestions, or type a 3-letter code (e.g. BOM).");
+    // Validate first; previous results stay visible until a search actually runs.
+    if (!from || !to) return fail("Pick a city or airport from the suggestions, or type a valid 3-letter code (e.g. BOM).");
     if (from === to) return fail("From and To are the same.");
-    if (!oneWay() && !ret) return fail("Choose a return date, or switch to One way.");
     if (!out) return fail("Choose a departure date.");
+    if (out < today()) return fail("The departure date is in the past.");
+    if (!oneWay() && !ret) return fail("Choose a return date, or switch to One way.");
     if (ret && ret < out) return fail("Return date is before the departure date.");
 
+    results.innerHTML = "";
     status.textContent = "Searching real flights…";
     $("f-go").disabled = true;
     try {
       const [o, r] = await Promise.all([lookup(from, to, out), ret ? lookup(to, from, ret) : null]);
-      // Nearest-date fallbacks must not put the return before the outbound (or vice versa).
+      // Nearest-date fallbacks must not put the return before the outbound (same day is fine).
       if (r) {
-        r.results = r.results.filter((f) => f.depDate > out);
-        o.results = o.results.filter((f) => f.depDate < ret);
+        r.results = r.results.filter((f) => f.depDate >= out);
+        o.results = o.results.filter((f) => f.depDate <= ret);
       }
       if (!r) {
         // One way: drop a return leg filled by an earlier round-trip search.
-        $("flights").querySelectorAll('[data-leg="ret"]').forEach((r) => r.remove());
+        $("flights").querySelectorAll('[data-leg="ret"]').forEach((row) => row.remove());
       }
       results.append(renderGroup("out", "Outbound", o));
       if (r) results.append(renderGroup("ret", "Return", r));
@@ -257,7 +320,7 @@
       const found = o.results.length + (r ? r.results.length : 0);
       status.textContent = found
         ? "We've added the best match (direct flights first) to your itinerary. Choose another option any time. Airlines sometimes change schedules, so check the airline's site before you book."
-        : "";
+        : "No flights found. You can still add flights manually below.";
     } catch (e) {
       fail(e.message);
     } finally {

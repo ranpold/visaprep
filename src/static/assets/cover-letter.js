@@ -12,6 +12,20 @@
     "Sponsorship letter and sponsor's documents",
   ];
   const $ = (id) => document.getElementById(id);
+  const todayLocal = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in the user's time zone
+
+  // The letter preview is directly editable: announce it as a multi-line text box.
+  letter.setAttribute("role", "textbox");
+  letter.setAttribute("aria-multiline", "true");
+  letter.setAttribute("aria-label", "Cover letter text (editable)");
+
+  // Once the traveller edits the letter itself, form changes no longer overwrite it.
+  const regen = document.createElement("p");
+  regen.className = "regen no-print";
+  regen.hidden = true;
+  regen.innerHTML = `You've edited the letter directly, so form changes aren't applied to it. <button type="button" class="btn-link">Rebuild from the form</button>`;
+  letter.before(regen);
+  let edited = false;
 
   $("docs").innerHTML = DOCS.map((d, i) => `<label style="display:flex;gap:8px;font-weight:400"><input type="checkbox" data-doc="${i}" style="width:auto"> ${window.escapeHtml(d)}</label>`).join("");
 
@@ -51,7 +65,7 @@
 ${or(s.address, "Your address")}
 ${or(s.email, "Email / phone")}
 
-${fmt(new Date().toISOString().slice(0, 10))}
+${fmt(todayLocal())}
 
 To the Visa Officer
 ${or(s.embassy, "Embassy / consulate name and city")}
@@ -78,19 +92,46 @@ ${or(s.name, "Your full name")}`;
 
   function update() {
     const s = read();
-    letter.textContent = compose(s);
-    window.store.set(KEY, s);
+    if (!edited) letter.textContent = compose(s);
+    regen.hidden = !edited;
+    window.store.set(KEY, { ...s, edited, letter: edited ? letter.innerText : "" });
+    if (s.start && s.end && s.end < s.start) warn("The departure date is before the arrival date.");
+    else if (status.dataset.kind === "dates") warn("");
   }
+
+  function warn(msg, kind = "dates") {
+    status.textContent = msg;
+    status.dataset.kind = msg ? kind : "";
+  }
+
+  // Remind the traveller about unfilled [placeholders] before the letter leaves the page.
+  function placeholderNote() {
+    const n = (letter.innerText.match(/\[[^\]\n]{3,}\]/g) || []).length;
+    return n ? ` Note: ${n} [placeholder${n === 1 ? "" : "s"}] still to fill in.` : "";
+  }
+
+  letter.addEventListener("input", () => {
+    edited = true;
+    update();
+  });
+  regen.querySelector("button").addEventListener("click", () => {
+    edited = false;
+    update();
+    letter.focus();
+  });
 
   form.addEventListener("input", update);
   form.addEventListener("change", update);
-  $("print").addEventListener("click", (e) => window.downloadPdf(letter, `visa cover letter ${$("name").value}`, e.currentTarget));
+  $("print").addEventListener("click", async (e) => {
+    await window.downloadPdf(letter, `visa cover letter ${$("name").value}`, e.currentTarget);
+    warn("PDF saved." + placeholderNote(), "action");
+  });
   $("copy").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(letter.innerText);
-      status.textContent = "Copied to clipboard.";
+      warn("Copied to clipboard." + placeholderNote(), "action");
     } catch {
-      status.textContent = "Couldn't copy automatically. Select the letter text and copy it manually.";
+      warn("Couldn't copy automatically. Select the letter text and copy it manually.", "action");
     }
   });
   $("txt").addEventListener("click", () => {
@@ -98,14 +139,27 @@ ${or(s.name, "Your full name")}`;
     a.href = URL.createObjectURL(new Blob([letter.innerText], { type: "text/plain" }));
     a.download = "visa-cover-letter.txt";
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000); // let the download start first
+    warn("Saved visa-cover-letter.txt." + placeholderNote(), "action");
   });
   $("reset").addEventListener("click", () => {
+    if ((edited || FIELDS.some((f) => $(f).value && $(f).tagName !== "SELECT")) && !confirm("Clear the form and the letter? This can't be undone.")) return;
     FIELDS.forEach((f) => ($(f).value = $(f).tagName === "SELECT" ? $(f).options[0].value : ""));
     form.querySelectorAll("[data-doc]").forEach((c) => (c.checked = false));
+    edited = false;
+    warn("");
     update();
   });
 
-  write(window.store.get(KEY, {}));
+  $("start").min = todayLocal();
+  $("end").min = todayLocal();
+  $("start").addEventListener("change", () => ($("end").min = $("start").value || todayLocal()));
+
+  const savedState = window.store.get(KEY, {});
+  write(savedState);
+  if (savedState.edited && savedState.letter) {
+    edited = true;
+    letter.textContent = savedState.letter;
+  }
   update();
 })();

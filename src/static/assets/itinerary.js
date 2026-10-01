@@ -17,17 +17,30 @@
     return n > 0 ? n : "";
   };
 
+  let fieldSeq = 0;
+  const todayLocal = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
+
   function addItem(list, data = {}) {
     const node = document.getElementById("tpl-" + list).content.firstElementChild.cloneNode(true);
     node.querySelectorAll("[data-k]").forEach((el) => {
       if (data[el.dataset.k] != null) el.value = data[el.dataset.k];
     });
+    // Link each visible label to its field (rows are cloned, so ids are generated).
+    node.querySelectorAll("label").forEach((label) => {
+      const field = label.parentElement.querySelector("input:not([type=hidden]), select, textarea");
+      if (!field) return;
+      field.id ||= `fld-${++fieldSeq}`;
+      label.htmlFor = field.id;
+    });
+    node.querySelectorAll('input[type="date"]').forEach((d) => (d.min = todayLocal()));
     // Rows filled by the flight finder remember their leg so a new search replaces them.
     if (data._leg) node.dataset.leg = data._leg;
     if (list === "flights") {
-      // Hand edits to when/where invalidate the computed duration; fillDurations() recomputes it.
       const keys = ["date", "dep", "arr", "from", "to"];
       node.addEventListener("input", (e) => {
+        // Once the traveller edits a found flight it's theirs: a new search won't replace it.
+        delete node.dataset.leg;
+        // Hand edits to when/where invalidate the computed duration; fillDurations() recomputes it.
         if (!keys.includes(e.target.dataset.k)) return;
         for (const k of ["dur", "depUtc", "arrUtc", "arrDate"]) node.querySelector(`[data-k="${k}"]`).value = "";
       });
@@ -101,11 +114,12 @@
     const out = [];
     flights.forEach((f, i) => {
       const prev = flights[i - 1];
+      const sameAirport = prev && splitPlace(prev.to).code && splitPlace(prev.to).code === splitPlace(f.from).code;
+      // With exact times, a connection is a layover under 24 h; without them, only same-day flights connect.
+      const layoverMs = prev && +prev.arrUtc && +f.depUtc ? +f.depUtc - +prev.arrUtc : null;
       const connects =
-        prev &&
-        splitPlace(prev.to).code &&
-        splitPlace(prev.to).code === splitPlace(f.from).code &&
-        Date.parse(f.date) - Date.parse(prev.arrDate || prev.date) <= 86400000;
+        sameAirport &&
+        (layoverMs !== null ? layoverMs > 0 && layoverMs < 86400000 : f.date === (prev.arrDate || prev.date));
       if (connects) out[out.length - 1].push(f);
       else out.push([f]);
     });
@@ -323,24 +337,30 @@
     fillDurations().then((changed) => changed && update());
   }
 
+  // Example trip ~2 months ahead so its dates are never in the past.
+  const plusDays = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toLocaleDateString("en-CA");
+  };
   const SAMPLE = {
     tripTitle: "Tourism trip to France & Italy",
     purpose: "Tourism",
     travellers: "Priya Sharma",
     contact: "priya@example.com",
-    notes: "Travelling between Paris and Rome by overnight train on 14 May.",
+    notes: `Travelling between Paris and Rome by overnight train on ${new Date(plusDays(64) + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })}.`,
     flights: [
-      { date: "2026-05-10", airline: "Air France", flightNo: "", from: "Mumbai (BOM)", to: "Paris (CDG)", dep: "01:35", arr: "07:40", status: "Planned (not booked)" },
-      { date: "2026-05-20", airline: "ITA Airways", flightNo: "", from: "Rome (FCO)", to: "Mumbai (BOM)", dep: "21:10", arr: "09:15", status: "Planned (not booked)" },
+      { date: plusDays(60), airline: "Air France", flightNo: "", from: "Mumbai (BOM)", to: "Paris (CDG)", dep: "01:35", arr: "07:40", status: "Planned (not booked)" },
+      { date: plusDays(70), airline: "ITA Airways", flightNo: "", from: "Rome (FCO)", to: "Mumbai (BOM)", dep: "21:10", arr: "09:15", status: "Planned (not booked)" },
     ],
     stays: [
-      { name: "Hotel near Le Marais", city: "Paris", address: "", in: "2026-05-10", out: "2026-05-14", status: "Reserved (free cancellation)" },
-      { name: "Guesthouse in Trastevere", city: "Rome", address: "", in: "2026-05-15", out: "2026-05-20", status: "Reserved (free cancellation)" },
+      { name: "Hotel near Le Marais", city: "Paris", address: "", in: plusDays(60), out: plusDays(64), status: "Reserved (free cancellation)" },
+      { name: "Guesthouse in Trastevere", city: "Rome", address: "", in: plusDays(65), out: plusDays(70), status: "Reserved (free cancellation)" },
     ],
     days: [
-      { date: "2026-05-11", city: "Paris", plan: "Louvre, Tuileries, Seine river walk" },
-      { date: "2026-05-12", city: "Paris", plan: "Versailles day trip" },
-      { date: "2026-05-16", city: "Rome", plan: "Colosseum, Roman Forum" },
+      { date: plusDays(61), city: "Paris", plan: "Louvre, Tuileries, Seine river walk" },
+      { date: plusDays(62), city: "Paris", plan: "Versailles day trip" },
+      { date: plusDays(66), city: "Rome", plan: "Colosseum, Roman Forum" },
     ],
   };
 
@@ -355,12 +375,21 @@
   document.getElementById("print").addEventListener("click", (e) =>
     window.downloadPdf(preview, `${form.tripTitle.value || "travel"} itinerary`, e.currentTarget)
   );
+  // True if the traveller has typed anything worth protecting.
+  const hasDraft = () => {
+    const s = read();
+    const filled = (rows) => rows.some((r) => Object.entries(r).some(([k, v]) => v && !["status", "cabin", "_leg"].includes(k)));
+    return !!(s.tripTitle || s.travellers || s.contact || s.notes || filled(s.flights) || filled(s.stays) || filled(s.days));
+  };
   document.getElementById("sample").addEventListener("click", () => {
+    if (hasDraft() && !confirm("Replace your current itinerary with the example trip?")) return;
     load(SAMPLE);
     update();
   });
   document.getElementById("reset").addEventListener("click", () => {
+    if (hasDraft() && !confirm("Clear everything in this itinerary? This can't be undone.")) return;
     load({ flights: [{}, {}], stays: [{}], days: [] });
+    window.dispatchEvent(new Event("itinerary:reset"));
     update();
   });
 
