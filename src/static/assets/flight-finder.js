@@ -110,6 +110,9 @@
       if (li) choose(items[[...list.children].indexOf(li)]);
     });
     input.addEventListener("blur", () => {
+      // Cancel a search still waiting to run so the list can't reopen after focus has moved on.
+      clearTimeout(timer);
+      seq++;
       setTimeout(close, 100);
       resolveCode(input);
     });
@@ -194,10 +197,13 @@
   function apply(leg, f) {
     const box = $("flights");
     box.querySelectorAll(`[data-leg="${leg}"]`).forEach((r) => r.remove());
+    // All segments of one option share a group, so editing one keeps the whole connection.
+    const group = `${leg}-${Date.now()}`;
     const isEmpty = (row) => [...row.querySelectorAll("input:not([type=hidden])")].every((i) => !i.value);
     for (const seg of f.segments || [f]) {
       const row = [...box.children].find((r) => !r.dataset.leg && isEmpty(r)) || it.addItem("flights");
       row.dataset.leg = leg;
+      row.dataset.group = group;
       const set = (k, v) => (row.querySelector(`[data-k="${k}"]`).value = v);
       set("date", seg.depDate);
       set("airline", seg.airlineName);

@@ -35,11 +35,14 @@
     node.querySelectorAll('input[type="date"]').forEach((d) => (d.min = todayLocal()));
     // Rows filled by the flight finder remember their leg so a new search replaces them.
     if (data._leg) node.dataset.leg = data._leg;
+    if (data._group) node.dataset.group = data._group;
     if (list === "flights") {
       const keys = ["date", "dep", "arr", "from", "to"];
       node.addEventListener("input", (e) => {
-        // Once the traveller edits a found flight it's theirs: a new search won't replace it.
-        delete node.dataset.leg;
+        // Once the traveller edits a found flight it's theirs: a new search won't replace it, nor
+        // the other legs of the same connection (otherwise one leg would be left orphaned).
+        const g = node.dataset.group;
+        (g ? document.querySelectorAll(`#flights [data-group="${g}"]`) : [node]).forEach((r) => delete r.dataset.leg);
         // Hand edits to when/where invalidate the computed duration; fillDurations() recomputes it.
         if (!keys.includes(e.target.dataset.k)) return;
         for (const k of ["dur", "depUtc", "arrUtc", "arrDate"]) node.querySelector(`[data-k="${k}"]`).value = "";
@@ -67,6 +70,7 @@
         const o = {};
         item.querySelectorAll("[data-k]").forEach((el) => (o[el.dataset.k] = el.value));
         if (item.dataset.leg) o._leg = item.dataset.leg;
+        if (item.dataset.group) o._group = item.dataset.group;
         return o;
       });
     }
@@ -383,7 +387,7 @@
   // True if the traveller has typed anything worth protecting.
   const hasDraft = () => {
     const s = read();
-    const filled = (rows) => rows.some((r) => Object.entries(r).some(([k, v]) => v && !["status", "cabin", "_leg"].includes(k)));
+    const filled = (rows) => rows.some((r) => Object.entries(r).some(([k, v]) => v && !["status", "cabin", "_leg", "_group"].includes(k)));
     return !!(s.tripTitle || s.travellers || s.contact || s.notes || filled(s.flights) || filled(s.stays) || filled(s.days));
   };
   document.getElementById("sample").addEventListener("click", () => {

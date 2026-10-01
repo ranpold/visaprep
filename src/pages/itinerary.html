@@ -10,15 +10,13 @@
     <fieldset>
       <legend>Trip &amp; travellers</legend>
       <div class="row">
-        <div><label for="tripTitle">Trip title</label><input id="tripTitle" name="tripTitle" placeholder="Tourism trip to France &amp; Italy"></div>
+        <div><label for="tripTitle">Trip title</label><input id="tripTitle" name="tripTitle" placeholder="Trip to Italy"></div>
         <div><label for="purpose">Purpose of travel</label>
           <select id="purpose" name="purpose"><option>Tourism</option><option>Business</option><option>Visiting family / friends</option><option>Conference / event</option><option>Study visit</option><option>Transit</option><option>Other</option></select>
         </div>
+        <div><label for="contact">Contact (email / phone)</label><input id="contact" name="contact" placeholder="you@example.com"></div>
       </div>
-      <div class="row">
-        <div><label for="travellers">Traveller name(s), one per line</label><textarea id="travellers" name="travellers" placeholder="Priya Sharma&#10;Arjun Sharma"></textarea></div>
-        <div><label for="contact">Contact (email / phone)</label><input id="contact" name="contact" placeholder="priya@example.com"></div>
-      </div>
+      <div><label for="travellers">Traveller name(s), one per line</label><textarea id="travellers" name="travellers" rows="2" placeholder="Priya Sharma&#10;Arjun Sharma"></textarea></div>
     </fieldset>
 
     <fieldset>
@@ -39,7 +37,7 @@
           <label><input type="radio" name="f-trip" value="oneway"> One way</label>
         </div>
         <div class="row route-row">
-          <button type="button" class="swap" id="f-swap" aria-label="Swap From and To" title="Swap From and To"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg></button>
+          <button type="button" class="swap" id="f-swap" aria-label="Swap From and To" title="Swap From and To" style="grid-column:2"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg></button>
           <div class="ac"><label for="f-from">From</label><input id="f-from" placeholder="City or airport, e.g. Mumbai" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="f-from-list" data-place><ul class="ac-list" id="f-from-list" role="listbox" hidden></ul></div>
           <div class="ac"><label for="f-to">To</label><input id="f-to" placeholder="e.g. Paris" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="f-to-list" data-place><ul class="ac-list" id="f-to-list" role="listbox" hidden></ul></div>
         </div>

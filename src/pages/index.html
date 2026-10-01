@@ -11,10 +11,10 @@
     </div>
     <figure class="hero-doc">
       <div class="paper exp hero-paper" aria-hidden="true">
-        <header class="ex-top"><div><h2>Paris</h2><p class="ex-range">Sun, May 10 – Thu, May 21</p></div><p class="ex-doc">Travel itinerary</p></header>
+        <header class="ex-top"><div><h2>Paris</h2><p class="ex-range"><span data-rel-date="60" data-fmt="long">Sun, May 10</span> – <span data-rel-date="71" data-fmt="long">Thu, May 21</span></p></div><p class="ex-doc">Travel itinerary</p></header>
         <section class="ex-block">
           <h3>Flights</h3>
-          <div class="ex-jhead"><span class="ex-jdate">Sun, May 10</span><span class="ex-jtitle">– Departure</span><span class="ex-jstops">Nonstop</span><span class="ex-jtotal">Total travel time: 9 h 35 m</span></div>
+          <div class="ex-jhead"><span class="ex-jdate" data-rel-date="60" data-fmt="long">Sun, May 10</span><span class="ex-jtitle">– Departure</span><span class="ex-jstops">Nonstop</span><span class="ex-jtotal">Total travel time: 9 h 35 m</span></div>
           <div class="ex-seg">
             <div class="ex-seghead"><span>Mumbai <span class="ex-arrow">→</span> Paris</span><span class="ex-dur">9 h 35 m</span></div>
             <div class="ex-segbody">
@@ -60,9 +60,10 @@
 <section class="wrap">
   <h2>Why not buy a "dummy ticket"?</h2>
   <p>Paid dummy-ticket sites charge $5–$25 for a PDF that looks like an airline ticket. Visa officers see these every day. A document that pretends to be a booking but isn't one can count as misrepresentation, and that can mean refusal or even a ban. Most consulates ask for a <em>travel plan or reservation</em>, not a paid ticket. An honest plan costs nothing.</p>
-  <div class="table-scroll">
+  <p class="scroll-hint" aria-hidden="true">Scroll sideways to compare →</p>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Comparison: VisaItinerary vs typical dummy-ticket sites">
     <table class="compare">
-      <thead><tr><th></th><th>{{siteName}}</th><th>Typical dummy-ticket site</th></tr></thead>
+      <thead><tr><th></th><th>{{brandMark}}</th><th>Typical dummy-ticket site</th></tr></thead>
       <tbody>
         <tr><td>Price</td><td><strong>Free, always</strong></td><td>Free sample, then $5–$25 to download</td></tr>
         <tr><td>What you get</td><td>Honest itinerary plan, checklist, cover letter</td><td>Ticket-style PDF, sometimes with a short-lived PNR</td></tr>

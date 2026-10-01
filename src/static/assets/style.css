@@ -57,6 +57,8 @@ h3 { font-size: 1.15rem; margin: 1.4em 0 .4em; }
 .nav { display: flex; align-items: center; justify-content: space-between; min-height: 60px; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.1rem; color: var(--brand); text-decoration: none; }
 .brand span { color: var(--text); }
+.bm-2 { color: var(--brand); }
+.brand .bm-2 { color: var(--brand); }
 .nav-links { display: flex; gap: 22px; }
 .nav-links a { color: var(--text); text-decoration: none; font-weight: 500; font-size: .95rem; padding: 10px 0; }
 .nav-links a:hover, .nav-links a[aria-current] { color: var(--brand); }
@@ -106,7 +108,14 @@ a.card:hover { transform: translateY(-2px); border-color: var(--brand); }
 .compare { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
 .compare th, .compare td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .compare th { background: var(--surface-2); font-weight: 600; }
-.table-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; background:
+    linear-gradient(to right, var(--bg) 30%, transparent) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--bg) 30%, transparent) right / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.25), transparent) left / 10px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.25), transparent) right / 10px 100% no-repeat scroll; }
+.table-scroll .compare { background: transparent; }
+.scroll-hint { display: none; font-size: .85rem; color: var(--muted); margin: 0 0 6px; }
+@media (max-width: 640px) { .scroll-hint { display: block; } }
 
 /* Notices */
 .notice { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 10px; padding: 14px 16px; margin: 16px 0; }
@@ -119,7 +128,9 @@ summary { cursor: pointer; font-weight: 600; }
 details[open] summary { margin-bottom: 8px; }
 
 /* Forms */
-.tool { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; padding: 32px 0 48px; }
+.tool { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; padding: 12px 0 48px; }
+.doc-check { display: flex; align-items: center; gap: 10px; font-weight: 400; font-size: .95rem; min-height: 44px; margin: 0; cursor: pointer; }
+.doc-check input { width: 22px; height: 22px; flex: none; accent-color: var(--brand); }
 @media (max-width: 960px) { .tool { grid-template-columns: 1fr; } }
 fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin: 0 0 18px; background: var(--surface); }
 legend { font-weight: 600; padding: 0 6px; }
@@ -221,11 +232,14 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; backgr
 
 /* From/To swap button, centred between the two fields */
 .route-row { position: relative; }
-.swap { position: absolute; left: 50%; top: 26px; transform: translateX(-50%); z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--brand); display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow); transition: transform .2s ease; }
+.route-row { grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); gap: 8px; align-items: end; }
+.route-row > .ac:first-of-type { grid-column: 1; grid-row: 1; }
+.route-row > .ac:last-of-type { grid-column: 3; grid-row: 1; }
+.swap { grid-row: 1; justify-self: center; margin-bottom: 2px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--brand); display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow); transition: transform .2s ease; }
 .swap:hover { border-color: var(--brand); }
-.swap.spun { transform: translateX(-50%) rotate(180deg); }
+.swap.spun { transform: rotate(180deg); }
 .swap:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-@media (max-width: 400px) { .route-row { grid-template-columns: 1fr 1fr; } }
+
 
 /* Hotel links */
 .hotel-cta { margin: 10px 0 0; font-size: .88rem; }
@@ -325,13 +339,13 @@ fieldset[hidden] { display: none; }
 
 /* The second (To) field sits on the right: open its suggestions leftwards so they stay on screen. */
 .route-row > div:last-child .ac-list { left: auto; right: 0; }
-#f-from, #f-to { padding-right: 24px; }
+
 
 /* Respect "reduce motion": no transitions or transforms for decoration. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
   a.card:hover { transform: none; }
-  .swap.spun { transform: translateX(-50%); }
+  .swap.spun { transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) { .tools a:hover .t-go { transform: none; } }

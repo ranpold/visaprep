@@ -27,7 +27,7 @@
   letter.before(regen);
   let edited = false;
 
-  $("docs").innerHTML = DOCS.map((d, i) => `<label style="display:flex;gap:8px;font-weight:400"><input type="checkbox" data-doc="${i}" style="width:auto"> ${window.escapeHtml(d)}</label>`).join("");
+  $("docs").innerHTML = DOCS.map((d, i) => `<label class="doc-check"><input type="checkbox" data-doc="${i}"> ${window.escapeHtml(d)}</label>`).join("");
 
   const fmt = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "");
   const days = (a, b) => (a && b ? Math.round((new Date(b) - new Date(a)) / 86400000) + 1 : 0);
@@ -123,8 +123,8 @@ ${or(s.name, "Your full name")}`;
   form.addEventListener("input", update);
   form.addEventListener("change", update);
   $("print").addEventListener("click", async (e) => {
-    await window.downloadPdf(letter, `visa cover letter ${$("name").value}`, e.currentTarget);
-    warn("PDF saved." + placeholderNote(), "action");
+    const ok = await window.downloadPdf(letter, `visa cover letter ${$("name").value}`, e.currentTarget);
+    warn(ok ? "PDF saved." + placeholderNote() : "Use the print dialog's \"Save as PDF\" to save your letter.", "action");
   });
   $("copy").addEventListener("click", async () => {
     try {

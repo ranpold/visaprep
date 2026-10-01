@@ -78,6 +78,8 @@ for (const file of walk(SRC)) {
     .replace("{{header}}", header)
     .replace("{{footer}}", footer)
     .replace("{{body}}", body)
+    // "VisaItinerary": second word in the accent colour so the capital I can't read as an l.
+    .replaceAll("{{brandMark}}", 'Visa<span class="bm-2">Itinerary</span>')
     .replaceAll("{{siteName}}", config.siteName)
     .replaceAll("{{year}}", String(new Date().getFullYear()))
     .replaceAll("{{contactEmail}}", config.contactEmail)

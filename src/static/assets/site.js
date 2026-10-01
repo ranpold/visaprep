@@ -87,11 +87,13 @@ window.downloadPdf = async (el, name, button) => {
       })
       .from(el)
       .save();
+    return true;
   } catch (err) {
     console.error(err);
     // Generator unavailable (offline, blocked CDN): the print dialog's "Save as PDF" still works.
     alert("The PDF generator couldn't load. Your browser's print dialog will open instead; choose \"Save as PDF\" as the destination.");
     window.print();
+    return false;
   } finally {
     if (button) {
       button.disabled = false;
@@ -99,3 +101,10 @@ window.downloadPdf = async (el, name, button) => {
     }
   }
 };
+
+// Example dates on static pages (e.g. the home-page sample itinerary) stay in the future.
+document.querySelectorAll("[data-rel-date]").forEach((el) => {
+  const d = new Date();
+  d.setDate(d.getDate() + Number(el.dataset.relDate));
+  el.textContent = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+});
