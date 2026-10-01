@@ -122,8 +122,14 @@ async function flights(url, env) {
   if (!env.ADB_KEY && !env.TP_TOKEN) return json({ error: "Flight lookup isn't configured yet." }, 503);
 
   const toSet = new Set(airportsOf(to));
+  let timetableDown = false;
   const [timetable, fares] = await Promise.all([
-    env.ADB_KEY ? timetableFlights(env, from, toSet, date).catch(logEmpty("timetable")) : [],
+    env.ADB_KEY
+      ? timetableFlights(env, from, toSet, date).catch((err) => {
+          if (err instanceof QuotaError) timetableDown = true;
+          return logEmpty("timetable")(err);
+        })
+      : [],
     env.TP_TOKEN ? search(env, from, to, date).catch(logEmpty("fares")) : [],
   ]);
 
@@ -153,8 +159,8 @@ async function flights(url, env) {
 
   // Direct first (by departure time), then connections (fastest first).
   results.sort((a, b) => a.stops - b.stops || (a.stops ? a.durationMin - b.durationMin : (a.depDate + a.depTime).localeCompare(b.depDate + b.depTime)));
-  const res = json({ exact, date, results: results.slice(0, 20) });
-  if (!results.length) res.headers.set("X-Empty", "1");
+  const res = json({ exact, date, results: results.slice(0, 20), ...(timetableDown ? { notice: "timetable-unavailable" } : {}) });
+  if (!results.length || timetableDown) res.headers.set("X-Empty", "1"); // don't cache degraded answers
   return res;
 }
 
@@ -209,6 +215,7 @@ async function originAirports(code) {
 
 // Direct flights from the timetable, plus one-stop connections when there are few directs.
 async function timetableFlights(env, from, toSet, date) {
+  if (env.CACHE && (await env.CACHE.get(QUOTA_FLAG))) throw new QuotaError("timetable quota exhausted (cached flag)");
   const origins = await originAirports(from);
   const originDeps = (await Promise.all(origins.map((a) => departures(env, a, date)))).flat().map(withName);
   const direct = originDeps.filter((f) => toSet.has(f.to));
@@ -325,16 +332,25 @@ async function departures(env, airport, date) {
   return list;
 }
 
+const QUOTA_FLAG = "adb:quota-exhausted";
+class QuotaError extends Error {}
+
 async function fids(env, airport, fromLocal, toLocal) {
   const req = adbRequest(env, `/flights/airports/iata/${airport}/${fromLocal}/${toLocal}`);
   const q = new URL(req.url);
   for (const [k, v] of Object.entries({ direction: "Departure", withLeg: "true", withCancelled: "false", withCodeshared: "false", withCargo: "false", withPrivate: "false", withLocation: "false" }))
     q.searchParams.set(k, v);
   let r;
-  // The free RapidAPI plan rate-limits bursts; back off and retry a few times.
+  // The free RapidAPI plan rate-limits bursts; back off and retry a few times. A used-up
+  // monthly quota is different: retrying can't help, so remember it and stop calling.
   for (let attempt = 0; attempt < 4; attempt++) {
     r = await fetch(q, { headers: req.headers });
     if (r.status !== 429) break;
+    const text = await r.clone().text().catch(() => "");
+    if (/quota/i.test(text)) {
+      if (env.CACHE) await env.CACHE.put(QUOTA_FLAG, "1", { expirationTtl: 6 * 3600 });
+      throw new QuotaError(text.slice(0, 200));
+    }
     await new Promise((ok) => setTimeout(ok, 1200 * (attempt + 1)));
   }
   if (r.status === 204) return [];

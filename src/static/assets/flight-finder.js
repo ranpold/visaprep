@@ -324,8 +324,12 @@
       if (r) results.append(renderGroup("ret", "Return", r));
       results.append(hotelCta(o, r));
       const found = o.results.length + (r ? r.results.length : 0);
+      const degraded = o.notice === "timetable-unavailable" || r?.notice === "timetable-unavailable";
       status.textContent = found
-        ? "We've added the best match (direct flights first) to your itinerary. Choose another option any time. Airlines sometimes change schedules, so check the airline's site before you book."
+        ? "We've added the best match (direct flights first) to your itinerary. Choose another option any time. Airlines sometimes change schedules, so check the airline's site before you book." +
+          (degraded ? " Live airline timetables are briefly unavailable, so these come from recent fare searches only." : "")
+        : degraded
+        ? "Live airline timetables are temporarily unavailable, so we couldn't look up this route. Please try again later, or add your flights manually below."
         : "No flights found. You can still add flights manually below.";
     } catch (e) {
       fail(e.message);
